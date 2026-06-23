@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Garage Log — FH6</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1a5cc0">
+<script>
+  // Apply saved theme before first paint to avoid a flash of the wrong theme.
+  try{
+    var savedTheme = localStorage.getItem("fh6_garage_theme_v1");
+    var validThemes = ["dark", "light", "fh6"];
+    document.documentElement.setAttribute("data-theme", validThemes.indexOf(savedTheme) !== -1 ? savedTheme : "light");
+  } catch(e){}
+</script>
+<style>
+  :root{
+    --asphalt: #0b0d10;
+    --asphalt-2: #14171c;
+    --panel: #1a1e24;
+    --line: #2a2f37;
+    --paper: #e9e4d8;
+    --paper-dim: #a8a39a;
+    --amber: #f5a623;
+    --amber-bg: #f5a623;
+    --accent-bg-text: #1a1304;
+    --amber-dim: #8a6a2e;
+    --red: #e0483e;
+
+    --r-common: #3fae5c;
+    --r-rare: #4fa8e0;
+    --r-epic: #e85fb0;
+    --r-legendary: #f5a623;
+    --r-forzaedition: #cc3e33;
+    --r-fe-1: #4fa8e0;
+    --r-fe-2: #e85fb0;
+    --r-fe-3: #3fae5c;
+    --r-unknown: #9a9a9a;
+    --class-badge-bg: #453522;
+    --class-badge-text: #f0ece0;
+  }
+  html[data-theme="light"]{
+    --asphalt: #f4f5f7;
+    --asphalt-2: #eceef2;
+    --panel: #ffffff;
+    --line: #d7dae0;
+    --paper: #1c2024;
+    --paper-dim: #5b6470;
+    --amber: #1a5cc0;
+    --amber-bg: #9ec5ee;
+    --accent-bg-text: #0d2438;
+    --amber-dim: #9ec5ee;
+    --red: #c43d34;
+
+    --r-common: #2f9e54;
+    --r-rare: #4490d0;
+    --r-epic: #c659a8;
+    --r-legendary: #f5a623;
+    --r-forzaedition: #c43d34;
+    --r-fe-1: #4490d0;
+    --r-fe-2: #c659a8;
+    --r-fe-3: #2f9e54;
+    --r-unknown: #828892;
+    --class-badge-bg: #43392c;
+    --class-badge-text: #ffffff;
+  }
+  html[data-theme="fh6"]{
+    --asphalt: #0b3a42;
+    --asphalt-2: #0e4750;
+    --panel: #114a54;
+    --line: #2d6b76;
+    --paper: #f5fbfa;
+    --paper-dim: #8fc4cb;
+    --amber: #ff8fc8;
+    --amber-bg: #ff8fc8;
+    --accent-bg-text: #1a1304;
+    --amber-dim: #b03a78;
+    --red: #ff6b4a;
+
+    --r-common: #5fc97f;
+    --r-rare: #4fc3e0;
+    --r-epic: #e85fb0;
+    --r-legendary: #f5a623;
+    --r-forzaedition: #c93f28;
+    --r-fe-1: #4fc3e0;
+    --r-fe-2: #e85fb0;
+    --r-fe-3: #5fc97f;
+    --r-unknown: #90b09f;
+    --class-badge-bg: #0d3138;
+    --class-badge-text: #f5fbfa;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--asphalt);
+    background-image: radial-gradient(circle at 50% 0%, rgba(245,166,35,0.06), transparent 60%);
+    color: var(--paper);
+    font-family: 'Oswald', 'Arial Narrow', sans-serif;
+    min-height:100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap{ max-width: 760px; margin: 0 auto; padding: 18px 16px 100px; }
+
+  header{
+    display:flex; align-items:center; gap:18px;
+    padding: 10px 4px 22px; border-bottom: 1px solid var(--line); margin-bottom: 16px;
+  }
+  .gauge{ position:relative; width:84px; height:84px; flex-shrink:0; }
+  .gauge svg{ transform: rotate(-90deg); }
+  .gauge-track{ fill:none; stroke: var(--line); stroke-width: 8; }
+  .gauge-fill{ fill:none; stroke: var(--amber); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
+  .gauge-num{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size: 19px; font-weight: 700; letter-spacing: -0.5px; color: var(--paper);
+  }
+  .gauge-num sup{ font-size: 10px; color: var(--paper-dim); margin-left:1px; }
+
+  .title-block{ flex:1; min-width:0; }
+  .eyebrow{ font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--amber); font-weight: 600; margin: 0 0 4px; }
+  h1{ margin:0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.05; text-transform: uppercase; }
+  .sub{ margin: 4px 0 0; font-size: 13px; color: var(--paper-dim); font-family: Arial, sans-serif; }
+  .sub-cr{ color: var(--amber); font-weight:600; }
+
+  /* SETTINGS (theme + data, top-right, no extra page space) */
+  .header-actions{ display:flex; gap:6px; align-self:flex-start; flex-shrink:0; }
+  .header-icon-btn{
+    width:36px; height:36px; border-radius:8px;
+    background: var(--panel); border:1px solid var(--line); color: var(--paper-dim);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .header-icon-btn svg{ width:17px; height:17px; }
+  .header-icon-btn:hover{ color: var(--paper); }
+  .settings-wrap{ position:relative; flex-shrink:0; }
+  .settings-btn{
+    width:36px; height:36px; border-radius:8px;
+    background: var(--panel); border:1px solid var(--line); color: var(--paper-dim);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .settings-btn svg{ width:18px; height:18px; }
+  .settings-btn:hover{ color: var(--paper); }
+  .settings-panel{
+    position:absolute; top: 42px; right:0; z-index:20;
+    width: 240px; background: var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .settings-section-label{
+    font-family: Arial, sans-serif; font-size: 10px; text-transform:uppercase; letter-spacing:1px;
+    color: var(--paper-dim); margin: 10px 0 6px;
+  }
+  .settings-section-label:first-child{ margin-top:0; }
+  .settings-links{ display:flex; flex-direction:column; gap:6px; margin-bottom: 4px; }
+  .settings-links a{
+    font-family: Arial, sans-serif; font-size: 12.5px; color: var(--paper-dim);
+    text-decoration: underline; cursor:pointer;
+  }
+  .settings-links a:hover{ color: var(--paper); }
+
+  .theme-toggle{
+    display:flex; gap:3px; background: var(--asphalt); border:1px solid var(--line);
+    border-radius: 20px; padding: 3px;
+  }
+  .theme-option{
+    flex:1; text-align:center; padding: 6px 0; border-radius: 16px; font-family: Arial, sans-serif; font-size: 11.5px;
+    color: var(--paper-dim); cursor:pointer; user-select:none;
+  }
+  .theme-option.active{ background: var(--amber-bg); color: var(--accent-bg-text); font-weight:600; }
+
+  /* TABS: All / Have / Missing */
+  .tabs{
+    display:flex; gap:4px; background: var(--panel); border:1px solid var(--line);
+    border-radius: 8px; padding: 3px; margin-bottom: 14px;
+  }
+  .tab{
+    flex:1; text-align:center; padding: 9px 0; border-radius: 6px;
+    font-family: Arial, sans-serif; font-size: 13px; font-weight:600;
+    color: var(--paper-dim); cursor:pointer; user-select:none;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tab.active{ background: var(--amber-bg); color: var(--accent-bg-text); }
+
+  .search-row{
+    position: sticky; top: 0; z-index: 5;
+    background: linear-gradient(to bottom, var(--asphalt) 75%, transparent);
+    padding: 8px 0 10px; margin: -8px 0 4px;
+  }
+  .search-box{
+    display:flex; align-items:center; gap:10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 11px 14px;
+  }
+  .search-box svg{ flex-shrink:0; opacity:0.5; }
+  .search-box input{ flex:1; background:none; border:none; outline:none; color: var(--paper); font-family: Arial, sans-serif; font-size: 15px; }
+  .search-box input::placeholder{ color: var(--paper-dim); }
+  .clear-btn{ background:none; border:none; color:var(--paper-dim); font-size: 18px; cursor:pointer; padding:0 2px; line-height:1; }
+
+  .filter-row{ display:flex; gap:7px; margin: 12px 0 4px; font-family: Arial, sans-serif; overflow-x: auto; scrollbar-width: none; }
+  .filter-row::-webkit-scrollbar{ display:none; }
+  .filter-chip{
+    background: var(--panel); border: 1px solid var(--line); color: var(--paper-dim);
+    font-size: 12px; padding: 6px 12px; border-radius: 20px; cursor: pointer;
+    user-select: none; white-space:nowrap; flex-shrink:0;
+  }
+  .filter-chip.active{ background: var(--amber-bg); border-color: var(--amber-bg); color: var(--accent-bg-text); font-weight: 600; }
+
+  .sort-row{
+    display:flex; align-items:center; justify-content:flex-end; gap:6px;
+    font-family: Arial, sans-serif; font-size: 12px; color: var(--paper-dim);
+    margin: 10px 2px 4px;
+  }
+  .sort-row select{
+    background: var(--panel); color: var(--paper); border:1px solid var(--line);
+    border-radius: 3px; padding: 4px 8px; font-family: Arial, sans-serif; font-size: 12px;
+  }
+
+  .mfr-group{ margin-bottom: 4px; }
+  .mfr-header{ display:flex; align-items:baseline; justify-content:space-between; padding: 14px 2px 8px; cursor: pointer; }
+  .mfr-name{ font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .mfr-count{ font-family: Arial, sans-serif; font-size: 12px; color: var(--paper-dim); white-space:nowrap; }
+  .mfr-count.complete{ color: var(--amber); }
+
+  .car-list{ overflow:hidden; }
+  .car-row{ display:flex; align-items:flex-start; gap:10px; padding: 12px 2px; border-top: 1px solid var(--line); }
+  .car-row.owned .car-name{ color: var(--paper); }
+  .car-row:not(.owned) .car-name{ color: var(--paper-dim); }
+
+  .car-info{ flex:1; min-width:0; }
+  .car-top-line{ display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+  .car-year{ color: var(--paper-dim); font-size:13px; font-family: Arial, sans-serif;}
+  .car-name{ font-family: Arial, sans-serif; font-size: 14.5px; }
+  .car-meta-line{ display:flex; align-items:center; gap:7px; margin-top:4px; flex-wrap:wrap; }
+  .rarity-tag{
+    font-family: Arial, sans-serif; font-size: 10px; font-weight:700; text-transform:uppercase;
+    letter-spacing: 0.3px; padding: 2px 6px; border-radius: 3px;
+  }
+  .car-price{ font-family: Arial, sans-serif; font-size: 11.5px; color: var(--paper-dim); }
+  .car-class{
+    font-family: Arial, sans-serif; font-size: 10.5px; font-weight:700; color: var(--class-badge-text);
+    background: var(--class-badge-bg); padding: 2px 6px; border-radius: 3px; flex-shrink:0;
+  }
+  .find-tag{
+    font-family: Arial, sans-serif; font-size: 10.5px; color: var(--red);
+    border: 1px solid var(--red); padding: 1px 6px; border-radius: 3px;
+    max-width: 100%;
+  }
+
+  /* STARS + NOTES (always visible inline, per row) */
+  .car-extra-line{ display:flex; align-items:center; gap:10px; margin-top:7px; flex-wrap:wrap; }
+  .stars{ display:flex; gap:1px; flex-shrink:0; }
+  .star-btn{
+    background:none; border:none; padding:0; cursor:pointer;
+    width:18px; height:18px; display:flex; align-items:center; justify-content:center;
+    color: var(--line);
+  }
+  .star-btn svg{ width:15px; height:15px; }
+  .star-btn.filled{ color: var(--amber); }
+  .note-input{
+    flex:1; min-width: 90px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    padding: 5px 8px; color: var(--paper); font-family: Arial, sans-serif; font-size: 12px;
+    outline:none;
+  }
+  .note-input::placeholder{ color: var(--line); }
+  .note-input:focus{ border-color: var(--amber-dim); }
+
+  .qty-stepper{
+    display:flex; align-items:center; gap:0;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    overflow:hidden; flex-shrink:0;
+  }
+  .qty-btn{
+    width: 30px; height: 32px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color: var(--paper-dim);
+    font-size: 17px; cursor:pointer; font-family: Arial, sans-serif; user-select:none;
+  }
+  .qty-btn:active{ background: var(--line); }
+  .qty-btn.plus{ color: var(--amber); }
+  .qty-num{ width: 30px; text-align:center; font-family: Arial, sans-serif; font-weight:700; font-size: 14px; color: var(--paper); }
+  .qty-num.zero{ color: var(--paper-dim); font-weight:400; }
+
+  .row-controls{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .edit-car-btn{
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--paper-dim);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .edit-car-btn svg{ width:14px; height:14px; }
+  .edit-car-btn:hover{ color: var(--paper); border-color: var(--paper-dim); }
+  .edited-dot{
+    width:6px; height:6px; border-radius:50%; background: var(--amber);
+    display:inline-block; margin-left:4px; vertical-align: middle;
+  }
+
+  .empty-state{ text-align:center; padding: 60px 20px; color: var(--paper-dim); font-family: Arial, sans-serif; font-size: 14px; }
+
+  .add-bar{
+    position: fixed; bottom: 0; left:0; right:0;
+    background: var(--asphalt-2); border-top: 1px solid var(--line);
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    display:flex; flex-direction: column; gap:8px; max-width: 760px; margin: 0 auto;
+  }
+  .add-bar-row{ display:flex; gap:8px; }
+  .add-bar input, .add-bar select{
+    background: var(--panel); border: 1px solid var(--line); border-radius: 3px;
+    padding: 9px 10px; color: var(--paper); font-family: Arial, sans-serif; font-size: 13px; outline:none;
+  }
+  .add-bar input.name-input{ flex:1.4; }
+  .add-bar input.year-input{ flex:0.6; min-width:0; }
+  .add-bar select{ flex:1; }
+  .add-bar button{
+    background: var(--amber-bg); color: var(--accent-bg-text); border:none; border-radius: 3px;
+    padding: 10px 16px; font-weight: 700; font-family: Arial, sans-serif; font-size: 13px;
+    cursor:pointer; text-transform: uppercase; letter-spacing: 0.5px; white-space:nowrap;
+  }
+  .add-toggle{
+    text-align:center; font-family: Arial, sans-serif; font-size: 12px; color: var(--paper-dim);
+    text-decoration: underline; cursor:pointer; padding: 2px 0;
+  }
+
+  /* BULK ADD */
+  .mode-tabs{ display:flex; gap:6px; margin-bottom:8px; }
+  .mode-tab{
+    flex:1; text-align:center; padding:6px 0; font-family: Arial, sans-serif; font-size:12px;
+    background: var(--panel); border:1px solid var(--line); border-radius:5px; color: var(--paper-dim);
+    cursor:pointer; user-select:none;
+  }
+  .mode-tab.active{ background: var(--amber-dim); color: var(--paper); border-color: var(--amber-dim); }
+  .bulk-textarea{
+    width:100%; min-height: 90px; resize: vertical;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    padding: 8px 10px; color: var(--paper); font-family: Arial, sans-serif; font-size: 12.5px;
+    outline:none; line-height:1.5;
+  }
+  .bulk-textarea::placeholder{ color: var(--line); white-space: pre-line; }
+  .bulk-hint{ font-family: Arial, sans-serif; font-size: 11px; color: var(--paper-dim); margin: 6px 2px; line-height:1.5; }
+  .bulk-preview{
+    font-family: Arial, sans-serif; font-size: 11.5px; margin-top: 8px;
+    max-height: 160px; overflow-y: auto;
+    border: 1px solid var(--line); border-radius: 4px;
+  }
+  .bulk-preview-row{
+    display:flex; justify-content:space-between; gap:8px;
+    padding: 6px 10px; border-bottom: 1px solid var(--line);
+  }
+  .bulk-preview-row:last-child{ border-bottom:none; }
+  .bulk-preview-row.error{ color: var(--red); }
+  .bulk-preview-row.ok{ color: var(--paper-dim); }
+  .bulk-preview-row .pname{ color: var(--paper); }
+  .bulk-actions{ display:flex; gap:8px; margin-top:8px; }
+
+  /* EDIT CAR MODAL */
+  .edit-overlay{
+    position: fixed; inset:0; background: rgba(0,0,0,0.5); z-index: 50;
+    display:flex; align-items:center; justify-content:center; padding: 20px;
+  }
+  .edit-modal{
+    background: var(--panel); border:1px solid var(--line); border-radius: 12px;
+    padding: 20px; width: 100%; max-width: 420px; max-height: 85vh; overflow-y:auto;
+  }
+  .edit-modal h3{
+    margin: 0 0 14px; font-family: Arial, sans-serif; font-size: 16px; color: var(--paper);
+    text-transform: none; letter-spacing: 0;
+  }
+  .edit-field{ margin-bottom: 10px; }
+  .edit-field label{
+    display:block; font-family: Arial, sans-serif; font-size: 11px; color: var(--paper-dim);
+    margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .edit-field input, .edit-field select{
+    width:100%; background: var(--asphalt); border: 1px solid var(--line); border-radius: 4px;
+    padding: 8px 10px; color: var(--paper); font-family: Arial, sans-serif; font-size: 13px; outline:none;
+  }
+  .edit-field input:focus, .edit-field select:focus{ border-color: var(--amber-dim); }
+  .edit-row-2col{ display:flex; gap:10px; }
+  .edit-row-2col .edit-field{ flex:1; }
+  .edit-modal-actions{ display:flex; gap:8px; margin-top: 16px; }
+  .edit-modal-actions button{
+    flex:1; padding: 10px 0; border-radius: 5px; border:none; cursor:pointer;
+    font-family: Arial, sans-serif; font-size: 13px; font-weight:700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .edit-save-btn{ background: var(--amber-bg); color: var(--accent-bg-text); }
+  .edit-cancel-btn{ background: var(--asphalt); color: var(--paper-dim); border:1px solid var(--line) !important; }
+  .edit-delete-btn{ background: var(--red); color: #ffffff; }
+  .edit-reset-link{
+    display:block; text-align:center; margin-top:12px; font-family: Arial, sans-serif; font-size: 11.5px;
+    color: var(--paper-dim); text-decoration:underline; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="gauge">
+      <svg width="84" height="84" viewBox="0 0 84 84">
+        <circle class="gauge-track" cx="42" cy="42" r="36"></circle>
+        <circle class="gauge-fill" id="gaugeFill" cx="42" cy="42" r="36" stroke-dasharray="226" stroke-dashoffset="226"></circle>
+      </svg>
+      <div class="gauge-num" id="gaugeNum">0<sup>%</sup></div>
+    </div>
+    <div class="title-block">
+      <p class="eyebrow">Discover Japan</p>
+      <h1>Garage Log</h1>
+      <p class="sub" id="ownedCount">0 of 0 models &middot; <span class="sub-cr" id="totalValue">0 CR</span></p>
+    </div>
+    <div class="header-actions">
+      <button class="header-icon-btn" id="quickSaveBtn" aria-label="Save (export) data" title="Save: export your data to a file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+      </button>
+      <button class="header-icon-btn" id="quickImportBtn" aria-label="Import data" title="Import: load a previously saved file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+      </button>
+      <div class="settings-wrap">
+        <button class="settings-btn" id="settingsBtn" aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <div class="settings-panel" id="settingsPanel" style="display:none;">
+          <div class="settings-section-label">Theme</div>
+          <div class="theme-toggle">
+            <div class="theme-option" data-theme="dark">Dark</div>
+            <div class="theme-option active" data-theme="light">Light</div>
+            <div class="theme-option" data-theme="fh6">FH6</div>
+          </div>
+          <div class="settings-section-label">Data</div>
+          <div class="settings-links">
+            <a id="exportData">Export data (.json)</a>
+            <a id="importData">Import data</a>
+            <input type="file" id="importFileInput" accept=".json,application/json" style="display:none;">
+          </div>
+          <div class="settings-links">
+            <a id="resetAll">Reset all counts</a>
+            <a id="resetNotes">Reset ratings &amp; notes</a>
+            <a id="resetEdits">Reset all car edits</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="all">All</div>
+    <div class="tab" data-tab="have">Have</div>
+    <div class="tab" data-tab="missing">Missing</div>
+  </div>
+
+  <div class="search-row">
+    <div class="search-box">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="Search cars or manufacturers...">
+      <button class="clear-btn" id="clearSearch" style="display:none;">✕</button>
+    </div>
+    <div class="filter-row">
+      <div class="filter-chip active" data-filter="rarity-all">All rarities</div>
+      <div class="filter-chip" data-filter="COMMON">Common</div>
+      <div class="filter-chip" data-filter="RARE">Rare</div>
+      <div class="filter-chip" data-filter="EPIC">Epic</div>
+      <div class="filter-chip" data-filter="LEGENDARY">Legendary</div>
+      <div class="filter-chip" data-filter="FORZAEDITION">Forza Edition</div>
+      <div class="filter-chip" data-filter="autoshow-only">Autoshow only</div>
+      <div class="filter-chip" data-filter="special-only">Needs special unlock</div>
+      <div class="filter-chip" data-filter="has-notes">Has notes</div>
+    </div>
+    <div class="sort-row">
+      Sort:
+      <select id="sortSelect">
+        <option value="default">Default</option>
+        <option value="price-desc">Cost: high to low</option>
+        <option value="price-asc">Cost: low to high</option>
+        <option value="year-desc">Year: newest first</option>
+        <option value="year-asc">Year: oldest first</option>
+        <option value="rarity">Rarity</option>
+        <option value="rating-desc">Rating: high to low</option>
+        <option value="rating-asc">Rating: low to high</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="listRoot"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">No cars match your search.</div>
+</div>
+
+<div id="editOverlay" class="edit-overlay" style="display:none;"></div>
+
+<div class="add-bar">
+  <div class="add-toggle" id="addToggle">+ Add a car not on the list</div>
+  <div id="addForm" style="display:none;">
+    <div class="mode-tabs">
+      <div class="mode-tab active" data-mode="single">Single car</div>
+      <div class="mode-tab" data-mode="bulk">Add multiple</div>
+    </div>
+
+    <div id="singleMode">
+      <div class="add-bar-row">
+        <input class="name-input" id="newMfr" type="text" placeholder="Manufacturer (e.g. Honda)">
+        <input class="name-input" id="newModel" type="text" placeholder="Model (e.g. Civic Type R)">
+        <input class="year-input" id="newYear" type="number" placeholder="Year">
+      </div>
+      <div class="add-bar-row">
+        <select id="newRarity">
+          <option value="COMMON">Common</option>
+          <option value="RARE">Rare</option>
+          <option value="EPIC">Epic</option>
+          <option value="LEGENDARY">Legendary</option>
+          <option value="FORZAEDITION">Forza Edition</option>
+          <option value="UNKNOWN">Unknown</option>
+        </select>
+        <input style="flex:1;" id="newPrice" type="number" placeholder="Price in CR (0 if unbuyable)">
+        <button id="addCarBtn">Add car</button>
+      </div>
+      <div class="add-bar-row">
+        <input style="flex:1;" id="newFind" type="text" placeholder="How to find (leave blank if Autoshow)">
+      </div>
+    </div>
+
+    <div id="bulkMode" style="display:none;">
+      <p class="bulk-hint">One car per line: <strong>Manufacturer, Model, Year, Rarity, Price, How to find</strong><br>
+      Only Manufacturer and Model are required. Leave a field blank between commas to skip it (e.g. <em>Toyota, Supra, 2020,,,</em>).<br>
+      Rarity options: Common, Rare, Epic, Legendary, Forza Edition, Unknown. Price must be digits only — write <em>1000000</em>, not <em>1,000,000</em>.</p>
+      <textarea class="bulk-textarea" id="bulkTextarea" placeholder="Toyota, GR Corolla, 2023, Rare, 45000, Requires Car Pass
+Honda, Civic Type R, 2023, Rare, 43000,
+BMW, M2 Forza Edition, 2023, Forza Edition, 500000, Wheelspin only"></textarea>
+      <div class="bulk-actions">
+        <button id="previewBulkBtn">Preview</button>
+      </div>
+      <div class="bulk-preview" id="bulkPreview" style="display:none;"></div>
+      <div class="bulk-actions" id="bulkConfirmRow" style="display:none;">
+        <button id="confirmBulkBtn">Add all valid cars</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- Real FH6 roster, parsed from the Forza Wiki car list (618 cars) ----
+const CARS = [{"mfr": "AMG Transport Dynamics", "model": "M12S Warthog CST", "y": 0, "p": 850000, "r": "LEGENDARY", "cl": "A", "pi": "663", "find": "Journal: 1,500 pts in \"Danger Signs\""}, {"mfr": "Abarth", "model": "595 esseesse", "y": 1968, "p": 25000, "r": "COMMON", "cl": "D", "pi": "100", "find": ""}, {"mfr": "Abarth", "model": "695 Biposto", "y": 2016, "p": 250000, "r": "COMMON", "cl": "B", "pi": "540", "find": "Hard to Find"}, {"mfr": "Abarth", "model": "Fiat 131", "y": 1980, "p": 125000, "r": "COMMON", "cl": "D", "pi": "399", "find": ""}, {"mfr": "Acura", "model": "Integra A-Spec", "y": 2023, "p": 36000, "r": "RARE", "cl": "C", "pi": "484", "find": ""}, {"mfr": "Acura", "model": "Integra Type R", "y": 2001, "p": 25000, "r": "COMMON", "cl": "C", "pi": "471", "find": ""}, {"mfr": "Acura", "model": "NSX Type S", "y": 2022, "p": 193000, "r": "EPIC", "cl": "S1", "pi": "734", "find": "Blue Wristband"}, {"mfr": "Acura", "model": "RSX Type S", "y": 2002, "p": 18000, "r": "COMMON", "cl": "C", "pi": "462", "find": ""}, {"mfr": "Alfa Romeo", "model": "155 Q4", "y": 1992, "p": 30000, "r": "EPIC", "cl": "C", "pi": "439", "find": ""}, {"mfr": "Alfa Romeo", "model": "33 Stradale", "y": 1968, "p": 3500000, "r": "LEGENDARY", "cl": "B", "pi": "593", "find": ""}, {"mfr": "Alfa Romeo", "model": "4C", "y": 2014, "p": 73000, "r": "EPIC", "cl": "A", "pi": "644", "find": ""}, {"mfr": "Alfa Romeo", "model": "8C Competizione", "y": 2007, "p": 312000, "r": "EPIC", "cl": "A", "pi": "635", "find": ""}, {"mfr": "Alfa Romeo", "model": "Giulia GTAm", "y": 2021, "p": 0, "r": "UNKNOWN", "cl": "S1", "pi": "717", "find": "Requires Italian PassionCar Pack"}, {"mfr": "Alfa Romeo", "model": "Giulia Quadrifoglio", "y": 2017, "p": 45000, "r": "RARE", "cl": "A", "pi": "667", "find": ""}, {"mfr": "Alfa Romeo", "model": "Giulia Sprint GTA Stradale", "y": 1965, "p": 343000, "r": "RARE", "cl": "D", "pi": "379", "find": ""}, {"mfr": "Alfa Romeo", "model": "Giulia TZ2", "y": 1965, "p": 1200000, "r": "LEGENDARY", "cl": "B", "pi": "532", "find": "Journal: 4,500 pts in \"Horizon Promo\""}, {"mfr": "Alfa Romeo", "model": "SE 048SP", "y": 1990, "p": 0, "r": "UNKNOWN", "cl": "R", "pi": "978", "find": "Requires Italian PassionCar Pack"}, {"mfr": "Alumicraft", "model": "122 Class 1 Buggy", "y": 2021, "p": 160000, "r": "EPIC", "cl": "B", "pi": "571", "find": ""}, {"mfr": "Alumicraft", "model": "6165 Trick Truck", "y": 2022, "p": 300000, "r": "EPIC", "cl": "C", "pi": "485", "find": ""}, {"mfr": "Alumicraft", "model": "Class 10 Race Car", "y": 2015, "p": 45000, "r": "EPIC", "cl": "B", "pi": "532", "find": ""}, {"mfr": "Apollo", "model": "Intensa Emozione", "y": 2019, "p": 3200000, "r": "LEGENDARY", "cl": "R", "pi": "916", "find": "Wheelspin only"}, {"mfr": "Ariel", "model": "Atom 500 V8", "y": 2013, "p": 190000, "r": "EPIC", "cl": "S2", "pi": "825", "find": ""}, {"mfr": "Ariel", "model": "Nomad", "y": 2016, "p": 54000, "r": "RARE", "cl": "A", "pi": "601", "find": "Journal: 100 pts in \"Bonus Boards\""}, {"mfr": "Aston Martin", "model": "DB11", "y": 2017, "p": 175000, "r": "EPIC", "cl": "A", "pi": "679", "find": ""}, {"mfr": "Aston Martin", "model": "DB5", "y": 1964, "p": 500000, "r": "EPIC", "cl": "C", "pi": "417", "find": ""}, {"mfr": "Aston Martin", "model": "DBS Superleggera", "y": 2019, "p": 275000, "r": "EPIC", "cl": "S1", "pi": "736", "find": "Wheelspin only"}, {"mfr": "Aston Martin", "model": "DBX", "y": 2021, "p": 250000, "r": "RARE", "cl": "A", "pi": "618", "find": "Hard to Find"}, {"mfr": "Aston Martin", "model": "Valhalla Concept Car", "y": 2019, "p": 1150000, "r": "LEGENDARY", "cl": "R", "pi": "960", "find": "Wheelspin only"}, {"mfr": "Aston Martin", "model": "Valkyrie", "y": 2023, "p": 2750000, "r": "LEGENDARY", "cl": "R", "pi": "925", "find": ""}, {"mfr": "Aston Martin", "model": "Valkyrie AMR Pro", "y": 2022, "p": 4200000, "r": "LEGENDARY", "cl": "R", "pi": "989", "find": "Journal: 2,500 pts in \"Horizon Legend\""}, {"mfr": "Aston Martin", "model": "Vantage", "y": 2019, "p": 250000, "r": "EPIC", "cl": "A", "pi": "696", "find": ""}, {"mfr": "Aston Martin", "model": "Vulcan", "y": 2016, "p": 2300000, "r": "LEGENDARY", "cl": "S2", "pi": "884", "find": "Wheelspin, Loyalty Reward"}, {"mfr": "Aston Martin", "model": "Vulcan AMR Pro", "y": 2017, "p": 3000000, "r": "LEGENDARY", "cl": "S2", "pi": "898", "find": ""}, {"mfr": "Audi", "model": "2 Audi Sport quattro S1", "y": 1986, "p": 750000, "r": "LEGENDARY", "cl": "S1", "pi": "726", "find": ""}, {"mfr": "Audi", "model": "R8 Coup\u00e9 V10 GT RWD", "y": 2023, "p": 0, "r": "EPIC", "cl": "S1", "pi": "769", "find": "Requires Car Pass"}, {"mfr": "Audi", "model": "R8 Coup\u00e9 V10 plus 5.2 FSI quattro", "y": 2013, "p": 100000, "r": "EPIC", "cl": "A", "pi": "694", "find": "Journal: 2,700 pts in \"Day Trips\""}, {"mfr": "Audi", "model": "R8 LMS", "y": 2009, "p": 900000, "r": "RARE", "cl": "S2", "pi": "810", "find": ""}, {"mfr": "Audi", "model": "R8 V10 performance", "y": 2020, "p": 281000, "r": "RARE", "cl": "S1", "pi": "738", "find": ""}, {"mfr": "Audi", "model": "R8 V10 plus", "y": 2016, "p": 160000, "r": "EPIC", "cl": "S1", "pi": "731", "find": ""}, {"mfr": "Audi", "model": "RS 3 Sedan", "y": 2020, "p": 52000, "r": "RARE", "cl": "A", "pi": "617", "find": ""}, {"mfr": "Audi", "model": "RS 3 Sportback", "y": 2011, "p": 20000, "r": "COMMON", "cl": "B", "pi": "565", "find": ""}, {"mfr": "Audi", "model": "RS 4", "y": 2006, "p": 75000, "r": "RARE", "cl": "B", "pi": "593", "find": ""}, {"mfr": "Audi", "model": "RS 4 Avant (2001)", "y": 2001, "p": 175000, "r": "COMMON", "cl": "B", "pi": "544", "find": ""}, {"mfr": "Audi", "model": "RS 4 Avant (2013)", "y": 2013, "p": 30000, "r": "RARE", "cl": "A", "pi": "607", "find": ""}, {"mfr": "Audi", "model": "RS 4 Avant (2018)", "y": 2018, "p": 50000, "r": "RARE", "cl": "A", "pi": "637", "find": ""}, {"mfr": "Audi", "model": "RS 5 Coup\u00e9 (2011)", "y": 2011, "p": 25000, "r": "RARE", "cl": "A", "pi": "613", "find": ""}, {"mfr": "Audi", "model": "RS 6 (2003)", "y": 2003, "p": 35000, "r": "RARE", "cl": "B", "pi": "556", "find": ""}, {"mfr": "Audi", "model": "RS 6 (2009)", "y": 2009, "p": 42000, "r": "EPIC", "cl": "B", "pi": "598", "find": ""}, {"mfr": "Audi", "model": "RS 6 Avant (2015)", "y": 2015, "p": 60000, "r": "RARE", "cl": "A", "pi": "640", "find": ""}, {"mfr": "Audi", "model": "RS 6 Avant (2021)", "y": 2021, "p": 83000, "r": "RARE", "cl": "A", "pi": "650", "find": ""}, {"mfr": "Audi", "model": "RS 7 Sportback (2013)", "y": 2013, "p": 55000, "r": "EPIC", "cl": "A", "pi": "620", "find": ""}, {"mfr": "Audi", "model": "RS 7 Sportback (2021)", "y": 2021, "p": 80000, "r": "RARE", "cl": "A", "pi": "655", "find": ""}, {"mfr": "Audi", "model": "RS e-tron GT", "y": 2021, "p": 95000, "r": "EPIC", "cl": "A", "pi": "677", "find": ""}, {"mfr": "Audi", "model": "S1", "y": 2015, "p": 21000, "r": "COMMON", "cl": "B", "pi": "527", "find": ""}, {"mfr": "Audi", "model": "Sport quattro", "y": 1983, "p": 650000, "r": "EPIC", "cl": "B", "pi": "526", "find": "Wheelspin only"}, {"mfr": "Audi", "model": "TT RS Coup\u00e9 (2010)", "y": 2010, "p": 35000, "r": "RARE", "cl": "B", "pi": "593", "find": ""}, {"mfr": "Austin-Healey", "model": "3000 MkIII", "y": 1965, "p": 75000, "r": "COMMON", "cl": "D", "pi": "352", "find": ""}, {"mfr": "Autozam", "model": "AZ-1", "y": 1993, "p": 38000, "r": "RARE", "cl": "D", "pi": "342", "find": ""}, {"mfr": "BAC", "model": "Mono", "y": 2014, "p": 196000, "r": "EPIC", "cl": "S1", "pi": "766", "find": ""}, {"mfr": "BMW", "model": "2002 Turbo", "y": 1973, "p": 127000, "r": "LEGENDARY", "cl": "C", "pi": "425", "find": ""}, {"mfr": "BMW", "model": "850CSi", "y": 1995, "p": 135000, "r": "RARE", "cl": "C", "pi": "493", "find": ""}, {"mfr": "BMW", "model": "Isetta 300 Export", "y": 1957, "p": 84000, "r": "COMMON", "cl": "D", "pi": "100", "find": ""}, {"mfr": "BMW", "model": "M1", "y": 1981, "p": 600000, "r": "UNKNOWN", "cl": "B", "pi": "510", "find": "Treasure Car (North Hokubu)"}, {"mfr": "BMW", "model": "M2 (2023)", "y": 2023, "p": 67000, "r": "RARE", "cl": "A", "pi": "647", "find": ""}, {"mfr": "BMW", "model": "M2 Competition Coup\u00e9", "y": 2020, "p": 250000, "r": "EPIC", "cl": "A", "pi": "656", "find": "Yellow Wristband"}, {"mfr": "BMW", "model": "M2 Forza Edition", "y": 2023, "p": 500000, "r": "FORZAEDITION", "cl": "A", "pi": "700", "find": "Journal: 5,000 pts in \"Horizon Legend\""}, {"mfr": "BMW", "model": "M3 (1988)", "y": 1988, "p": 250000, "r": "RARE", "cl": "C", "pi": "474", "find": ""}, {"mfr": "BMW", "model": "M3 (1997)", "y": 1997, "p": 30000, "r": "COMMON", "cl": "B", "pi": "549", "find": ""}, {"mfr": "BMW", "model": "M3 (2005)", "y": 2005, "p": 35000, "r": "COMMON", "cl": "B", "pi": "554", "find": ""}, {"mfr": "BMW", "model": "M3 (2008)", "y": 2008, "p": 43000, "r": "COMMON", "cl": "A", "pi": "608", "find": ""}, {"mfr": "BMW", "model": "M3 GTS", "y": 2010, "p": 198000, "r": "EPIC", "cl": "A", "pi": "678", "find": ""}, {"mfr": "BMW", "model": "M4 Competition Coup\u00e9", "y": 2021, "p": 64000, "r": "RARE", "cl": "A", "pi": "666", "find": ""}, {"mfr": "BMW", "model": "M4 Competition Coup\u00e9 'Welcome Pack'", "y": 2021, "p": 150000, "r": "LEGENDARY", "cl": "S1", "pi": "800", "find": "Requires Welcome Pack"}, {"mfr": "BMW", "model": "M4 Coup\u00e9", "y": 2014, "p": 55000, "r": "RARE", "cl": "A", "pi": "679", "find": ""}, {"mfr": "BMW", "model": "M4 GTS", "y": 2016, "p": 125000, "r": "EPIC", "cl": "S1", "pi": "711", "find": ""}, {"mfr": "BMW", "model": "M5 (1988)", "y": 1988, "p": 70000, "r": "RARE", "cl": "C", "pi": "469", "find": ""}, {"mfr": "BMW", "model": "M5 (1995)", "y": 1995, "p": 48000, "r": "RARE", "cl": "B", "pi": "516", "find": ""}, {"mfr": "BMW", "model": "M5 (2003)", "y": 2003, "p": 47000, "r": "COMMON", "cl": "B", "pi": "580", "find": ""}, {"mfr": "BMW", "model": "M5 (2009)", "y": 2009, "p": 54000, "r": "RARE", "cl": "B", "pi": "595", "find": ""}, {"mfr": "BMW", "model": "M5 (2012)", "y": 2012, "p": 40000, "r": "RARE", "cl": "A", "pi": "652", "find": ""}, {"mfr": "BMW", "model": "M5 CS", "y": 2022, "p": 150000, "r": "RARE", "cl": "S1", "pi": "730", "find": ""}, {"mfr": "BMW", "model": "M8 Competition Coup\u00e9", "y": 2020, "p": 100000, "r": "RARE", "cl": "A", "pi": "684", "find": ""}, {"mfr": "BMW", "model": "X5 M", "y": 2011, "p": 24000, "r": "COMMON", "cl": "B", "pi": "546", "find": ""}, {"mfr": "BMW", "model": "X6 M Competition", "y": 2024, "p": 140000, "r": "EPIC", "cl": "A", "pi": "672", "find": ""}, {"mfr": "BMW", "model": "Z4 M Coup\u00e9", "y": 2008, "p": 63000, "r": "RARE", "cl": "B", "pi": "579", "find": ""}, {"mfr": "BMW", "model": "Z4 Roadster", "y": 2019, "p": 38000, "r": "COMMON", "cl": "A", "pi": "634", "find": "Journal: 200 pts in \"Speed Zones\""}, {"mfr": "BMW", "model": "i8", "y": 2015, "p": 70000, "r": "RARE", "cl": "A", "pi": "665", "find": ""}, {"mfr": "BMW", "model": "iX xDrive50", "y": 2022, "p": 37000, "r": "RARE", "cl": "B", "pi": "595", "find": ""}, {"mfr": "Bentley", "model": "Bentayga", "y": 2016, "p": 250000, "r": "EPIC", "cl": "A", "pi": "612", "find": "Wheelspin only"}, {"mfr": "Bentley", "model": "Continental GT Convertible", "y": 2021, "p": 170000, "r": "RARE", "cl": "A", "pi": "649", "find": "Journal: 1,200 pts in \"Car Collection\""}, {"mfr": "Buick", "model": "Regal GNX", "y": 1987, "p": 255000, "r": "EPIC", "cl": "C", "pi": "454", "find": ""}, {"mfr": "Cadillac", "model": "ATS-V", "y": 2016, "p": 41000, "r": "COMMON", "cl": "A", "pi": "601", "find": ""}, {"mfr": "Cadillac", "model": "CT4-V Blackwing", "y": 2022, "p": 55000, "r": "RARE", "cl": "A", "pi": "650", "find": ""}, {"mfr": "Cadillac", "model": "CT5-V Blackwing", "y": 2022, "p": 90000, "r": "RARE", "cl": "S1", "pi": "701", "find": ""}, {"mfr": "Cadillac", "model": "CTS-V Sedan", "y": 2016, "p": 60000, "r": "COMMON", "cl": "A", "pi": "648", "find": ""}, {"mfr": "Cadillac", "model": "XTS Limousine", "y": 2013, "p": 44000, "r": "RARE", "cl": "D", "pi": "381", "find": ""}, {"mfr": "Can-Am", "model": "Maverick X RS Turbo R", "y": 2018, "p": 16000, "r": "COMMON", "cl": "B", "pi": "568", "find": ""}, {"mfr": "Casey", "model": "Currie Motorsports 4402 Ultra 4 'Trophy Jeep'", "y": 2019, "p": 250000, "r": "EPIC", "cl": "A", "pi": "641", "find": "Wheelspin only"}, {"mfr": "Chevrolet", "model": "150 Utility Sedan", "y": 1955, "p": 140000, "r": "COMMON", "cl": "D", "pi": "221", "find": ""}, {"mfr": "Chevrolet", "model": "Bel Air", "y": 1957, "p": 69000, "r": "RARE", "cl": "D", "pi": "320", "find": ""}, {"mfr": "Chevrolet", "model": "Camaro Super Sport Coupe", "y": 1969, "p": 75000, "r": "RARE", "cl": "C", "pi": "471", "find": ""}, {"mfr": "Chevrolet", "model": "Camaro Z/28 (2015)", "y": 2015, "p": 65000, "r": "RARE", "cl": "A", "pi": "695", "find": ""}, {"mfr": "Chevrolet", "model": "Camaro Z28 (1970)", "y": 1970, "p": 55000, "r": "RARE", "cl": "C", "pi": "430", "find": ""}, {"mfr": "Chevrolet", "model": "Camaro Z28 (1979)", "y": 1979, "p": 20000, "r": "RARE", "cl": "D", "pi": "364", "find": ""}, {"mfr": "Chevrolet", "model": "Camaro ZL1 (2017)", "y": 2017, "p": 55000, "r": "RARE", "cl": "S1", "pi": "727", "find": ""}, {"mfr": "Chevrolet", "model": "Camaro ZL1 1LE", "y": 2018, "p": 70000, "r": "RARE", "cl": "S1", "pi": "728", "find": ""}, {"mfr": "Chevrolet", "model": "Chevelle Super Sport 454", "y": 1970, "p": 90000, "r": "RARE", "cl": "C", "pi": "424", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette (1953)", "y": 1953, "p": 269000, "r": "LEGENDARY", "cl": "D", "pi": "270", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette (1960)", "y": 1960, "p": 250000, "r": "EPIC", "cl": "C", "pi": "428", "find": "Wheelspin only"}, {"mfr": "Chevrolet", "model": "Corvette E-Ray", "y": 2024, "p": 114000, "r": "EPIC", "cl": "S1", "pi": "737", "find": "Wheelspin, Loyalty Reward"}, {"mfr": "Chevrolet", "model": "Corvette Stingray 427", "y": 1967, "p": 135000, "r": "EPIC", "cl": "B", "pi": "510", "find": "Car Mastery (Chevrolet Corvette Stingray Coupe)"}, {"mfr": "Chevrolet", "model": "Corvette Stingray Coupe", "y": 2020, "p": 65000, "r": "RARE", "cl": "A", "pi": "699", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette Z06 (2002)", "y": 2002, "p": 33000, "r": "COMMON", "cl": "A", "pi": "602", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette Z06 (2015)", "y": 2015, "p": 100000, "r": "RARE", "cl": "S1", "pi": "755", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette Z06 (2023)", "y": 2023, "p": 155000, "r": "EPIC", "cl": "S1", "pi": "763", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette ZR-1 (1970)", "y": 1970, "p": 250000, "r": "EPIC", "cl": "C", "pi": "497", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette ZR-1 (1995)", "y": 1995, "p": 76000, "r": "COMMON", "cl": "B", "pi": "576", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette ZR1 (2009)", "y": 2009, "p": 125000, "r": "RARE", "cl": "S1", "pi": "712", "find": ""}, {"mfr": "Chevrolet", "model": "Corvette ZR1 (2019)", "y": 2019, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "778", "find": "Wheelspin only"}, {"mfr": "Chevrolet", "model": "El Camino Super Sport 454", "y": 1970, "p": 36000, "r": "RARE", "cl": "C", "pi": "430", "find": ""}, {"mfr": "Chevrolet", "model": "Impala Super Sport", "y": 1996, "p": 30000, "r": "COMMON", "cl": "C", "pi": "407", "find": ""}, {"mfr": "Chevrolet", "model": "Impala Super Sport 409", "y": 1964, "p": 70000, "r": "COMMON", "cl": "C", "pi": "427", "find": ""}, {"mfr": "Chevrolet", "model": "K-10 Custom", "y": 1972, "p": 49000, "r": "COMMON", "cl": "D", "pi": "268", "find": ""}, {"mfr": "Chevrolet", "model": "Monte Carlo Super Sport", "y": 1988, "p": 30000, "r": "COMMON", "cl": "D", "pi": "282", "find": ""}, {"mfr": "Chevrolet", "model": "Nova Super Sport 396", "y": 1969, "p": 40000, "r": "COMMON", "cl": "C", "pi": "431", "find": ""}, {"mfr": "Chevrolet", "model": "Silverado LT Trail Boss", "y": 2020, "p": 43000, "r": "RARE", "cl": "C", "pi": "449", "find": ""}, {"mfr": "Datsun", "model": "2000 Roadster", "y": 1969, "p": 250000, "r": "COMMON", "cl": "D", "pi": "323", "find": "Hard to Find"}, {"mfr": "Datsun", "model": "269 Attacking the Clock Racing 240Z 'All Carbon Hill Climb Beast'", "y": 1972, "p": 185000, "r": "EPIC", "cl": "R", "pi": "951", "find": "Requires Car Pass"}, {"mfr": "Datsun", "model": "510", "y": 1970, "p": 86000, "r": "COMMON", "cl": "D", "pi": "143", "find": ""}, {"mfr": "DeBerti", "model": "Chevrolet Silverado 1500 Drift Truck", "y": 2018, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "707", "find": ""}, {"mfr": "DeBerti", "model": "Ford Super Duty F-250 Lariat 'Transformer'", "y": 2019, "p": 275000, "r": "EPIC", "cl": "B", "pi": "548", "find": ""}, {"mfr": "DeBerti", "model": "Jeep Wrangler Unlimited", "y": 2018, "p": 150000, "r": "EPIC", "cl": "A", "pi": "645", "find": ""}, {"mfr": "DeBerti", "model": "Toyota Tacoma TRD 'The Performance Truck'", "y": 2019, "p": 250000, "r": "COMMON", "cl": "S1", "pi": "717", "find": ""}, {"mfr": "DeLorean", "model": "DMC-12", "y": 1982, "p": 72000, "r": "LEGENDARY", "cl": "D", "pi": "357", "find": ""}, {"mfr": "Dodge", "model": "Challenger R/T", "y": 1970, "p": 525000, "r": "EPIC", "cl": "C", "pi": "443", "find": "Wheelspin only"}, {"mfr": "Dodge", "model": "Challenger SRT Demon", "y": 2018, "p": 90000, "r": "RARE", "cl": "A", "pi": "678", "find": "Journal: 250 pts in \"Horizon Promo\""}, {"mfr": "Dodge", "model": "Challenger SRT Hellcat", "y": 2015, "p": 53000, "r": "RARE", "cl": "A", "pi": "631", "find": ""}, {"mfr": "Dodge", "model": "Challenger SRT Super Stock", "y": 2022, "p": 87000, "r": "RARE", "cl": "A", "pi": "695", "find": ""}, {"mfr": "Dodge", "model": "Charger Daytona HEMI", "y": 1969, "p": 541000, "r": "EPIC", "cl": "C", "pi": "479", "find": "Journal: 1,500 pts in \"Car Collection\""}, {"mfr": "Dodge", "model": "Charger R/T", "y": 1969, "p": 224000, "r": "UNKNOWN", "cl": "C", "pi": "417", "find": "Treasure Car (Central Minamino)"}, {"mfr": "Dodge", "model": "Charger SRT Hellcat", "y": 2015, "p": 44000, "r": "RARE", "cl": "A", "pi": "637", "find": ""}, {"mfr": "Dodge", "model": "Coronet Super Bee", "y": 1970, "p": 175000, "r": "RARE", "cl": "C", "pi": "455", "find": ""}, {"mfr": "Dodge", "model": "Dart HEMI Super Stock", "y": 1968, "p": 300000, "r": "LEGENDARY", "cl": "B", "pi": "540", "find": "Wheelspin only"}, {"mfr": "Dodge", "model": "Durango SRT Hellcat", "y": 2021, "p": 73000, "r": "EPIC", "cl": "A", "pi": "628", "find": "Journal: 1,400 pts in \"Day Trips\""}, {"mfr": "Dodge", "model": "Ram SRT-10", "y": 2006, "p": 250000, "r": "COMMON", "cl": "B", "pi": "547", "find": "Hard to Find"}, {"mfr": "Dodge", "model": "Viper ACR", "y": 2016, "p": 290000, "r": "EPIC", "cl": "S1", "pi": "786", "find": "Wheelspin only"}, {"mfr": "Dodge", "model": "Viper GTS ACR", "y": 1999, "p": 68000, "r": "LEGENDARY", "cl": "B", "pi": "598", "find": ""}, {"mfr": "Dodge", "model": "Viper GTS ACR Forza Edition", "y": 1999, "p": 500000, "r": "FORZAEDITION", "cl": "A", "pi": "700", "find": "Gifted (VIP Membership)"}, {"mfr": "Dodge", "model": "Viper SRT-10 ACR", "y": 2008, "p": 115000, "r": "RARE", "cl": "S1", "pi": "735", "find": ""}, {"mfr": "Ferrari", "model": "24 Ferrari Spa 330 P4", "y": 1967, "p": 70000000, "r": "LEGENDARY", "cl": "A", "pi": "684", "find": ""}, {"mfr": "Ferrari", "model": "250 GT Berlinetta Lusso", "y": 1962, "p": 1400000, "r": "LEGENDARY", "cl": "C", "pi": "475", "find": "Journal: 2,000 pts in \"Horizon Promo\""}, {"mfr": "Ferrari", "model": "250 GTO", "y": 1962, "p": 48000000, "r": "LEGENDARY", "cl": "C", "pi": "494", "find": ""}, {"mfr": "Ferrari", "model": "275 GTB4 Spider", "y": 1967, "p": 0, "r": "UNKNOWN", "cl": "C", "pi": "490", "find": "Requires Italian PassionCar Pack"}, {"mfr": "Ferrari", "model": "288 GTO", "y": 1984, "p": 2800000, "r": "LEGENDARY", "cl": "A", "pi": "643", "find": "Wheelspin only"}, {"mfr": "Ferrari", "model": "296 GTB", "y": 2022, "p": 380000, "r": "EPIC", "cl": "S2", "pi": "811", "find": "Hard to Find"}, {"mfr": "Ferrari", "model": "430 Scuderia", "y": 2007, "p": 355000, "r": "EPIC", "cl": "S1", "pi": "702", "find": ""}, {"mfr": "Ferrari", "model": "458 Italia", "y": 2009, "p": 210000, "r": "EPIC", "cl": "S1", "pi": "721", "find": ""}, {"mfr": "Ferrari", "model": "458 Speciale", "y": 2013, "p": 500000, "r": "EPIC", "cl": "S1", "pi": "768", "find": ""}, {"mfr": "Ferrari", "model": "488 GTB", "y": 2015, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "770", "find": ""}, {"mfr": "Ferrari", "model": "488 Pista", "y": 2019, "p": 716000, "r": "EPIC", "cl": "S2", "pi": "803", "find": ""}, {"mfr": "Ferrari", "model": "512 S", "y": 1970, "p": 3600000, "r": "LEGENDARY", "cl": "S1", "pi": "774", "find": ""}, {"mfr": "Ferrari", "model": "512 TR", "y": 1992, "p": 350000, "r": "EPIC", "cl": "A", "pi": "615", "find": "Wheelspin only"}, {"mfr": "Ferrari", "model": "599XX", "y": 2010, "p": 2000000, "r": "LEGENDARY", "cl": "S2", "pi": "840", "find": ""}, {"mfr": "Ferrari", "model": "599XX Evolution", "y": 2012, "p": 3200000, "r": "LEGENDARY", "cl": "S2", "pi": "894", "find": "Wheelspin only"}, {"mfr": "Ferrari", "model": "812 Superfast", "y": 2017, "p": 395000, "r": "LEGENDARY", "cl": "S1", "pi": "780", "find": ""}, {"mfr": "Ferrari", "model": "Dino 246 GT", "y": 1969, "p": 390000, "r": "EPIC", "cl": "C", "pi": "428", "find": ""}, {"mfr": "Ferrari", "model": "Enzo Ferrari", "y": 2002, "p": 3500000, "r": "LEGENDARY", "cl": "S1", "pi": "755", "find": ""}, {"mfr": "Ferrari", "model": "F12tdf", "y": 2015, "p": 500000, "r": "EPIC", "cl": "S1", "pi": "788", "find": ""}, {"mfr": "Ferrari", "model": "F355 Berlinetta", "y": 1994, "p": 250000, "r": "EPIC", "cl": "B", "pi": "588", "find": "Wheelspin only"}, {"mfr": "Ferrari", "model": "F40", "y": 1987, "p": 2000000, "r": "LEGENDARY", "cl": "A", "pi": "678", "find": "Journal: 2,000 pts in \"Garages\""}, {"mfr": "Ferrari", "model": "F40 Competizione", "y": 1989, "p": 3200000, "r": "LEGENDARY", "cl": "R", "pi": "948", "find": ""}, {"mfr": "Ferrari", "model": "F50", "y": 1995, "p": 4500000, "r": "LEGENDARY", "cl": "A", "pi": "678", "find": ""}, {"mfr": "Ferrari", "model": "F50 GT", "y": 1996, "p": 5500000, "r": "LEGENDARY", "cl": "R", "pi": "948", "find": "Car Mastery (Ferrari F50)"}, {"mfr": "Ferrari", "model": "F8 Tributo", "y": 2019, "p": 333000, "r": "LEGENDARY", "cl": "S2", "pi": "802", "find": "Wheelspin only"}, {"mfr": "Ferrari", "model": "F80", "y": 2025, "p": 0, "r": "UNKNOWN", "cl": "R", "pi": "920", "find": "Requires Italian PassionCar Pack"}, {"mfr": "Ferrari", "model": "FXX", "y": 2005, "p": 2500000, "r": "LEGENDARY", "cl": "S2", "pi": "900", "find": ""}, {"mfr": "Ferrari", "model": "FXX K", "y": 2014, "p": 4300000, "r": "LEGENDARY", "cl": "R", "pi": "936", "find": ""}, {"mfr": "Ferrari", "model": "FXX-K Evo", "y": 2018, "p": 4500000, "r": "LEGENDARY", "cl": "R", "pi": "957", "find": ""}, {"mfr": "Ferrari", "model": "FXX-K Evo 'Welcome Pack'", "y": 2018, "p": 250000, "r": "LEGENDARY", "cl": "R", "pi": "998", "find": "Requires Welcome Pack"}, {"mfr": "Ferrari", "model": "J50", "y": 2017, "p": 2500000, "r": "RARE", "cl": "S1", "pi": "772", "find": ""}, {"mfr": "Ferrari", "model": "J50 Preorder Car", "y": 2017, "p": 309000, "r": "LEGENDARY", "cl": "S1", "pi": "800", "find": "Gifted (Pre-orderForza Horizon 6)"}, {"mfr": "Ferrari", "model": "LaFerrari", "y": 2013, "p": 3000000, "r": "LEGENDARY", "cl": "S2", "pi": "857", "find": ""}, {"mfr": "Ferrari", "model": "Monza SP2", "y": 2019, "p": 2500000, "r": "LEGENDARY", "cl": "S1", "pi": "773", "find": ""}, {"mfr": "Ferrari", "model": "Portofino", "y": 2018, "p": 200000, "r": "EPIC", "cl": "S1", "pi": "714", "find": ""}, {"mfr": "Ferrari", "model": "Roma", "y": 2020, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "735", "find": "Hard to Find"}, {"mfr": "Ferrari", "model": "SF90 Stradale", "y": 2020, "p": 575000, "r": "LEGENDARY", "cl": "S2", "pi": "851", "find": ""}, {"mfr": "Ford", "model": "11 Rockstar F-150 Trophy Truck", "y": 2014, "p": 450000, "r": "EPIC", "cl": "A", "pi": "613", "find": ""}, {"mfr": "Ford", "model": "14 Rahal Letterman Lanigan Racing GRC Fiesta", "y": 2017, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "772", "find": "Journal: 850 pts in \"Bonus Boards\""}, {"mfr": "Ford", "model": "2 GT40 Mk II", "y": 1966, "p": 13200000, "r": "LEGENDARY", "cl": "A", "pi": "666", "find": ""}, {"mfr": "Ford", "model": "2069 Ford Performance Bronco R", "y": 2020, "p": 450000, "r": "EPIC", "cl": "C", "pi": "441", "find": ""}, {"mfr": "Ford", "model": "25 'Brocky' Ultra4 Bronco RTR", "y": 2017, "p": 75000, "r": "EPIC", "cl": "A", "pi": "644", "find": "Journal: 2,500 pts in \"Master Explorer\""}, {"mfr": "Ford", "model": "4 Ford Focus RS", "y": 2001, "p": 415000, "r": "RARE", "cl": "A", "pi": "639", "find": ""}, {"mfr": "Ford", "model": "5 Escort RS1800 MkII", "y": 1977, "p": 185000, "r": "EPIC", "cl": "B", "pi": "544", "find": ""}, {"mfr": "Ford", "model": "Bronco Raptor", "y": 2022, "p": 50000, "r": "EPIC", "cl": "C", "pi": "473", "find": ""}, {"mfr": "Ford", "model": "Capri RS3100", "y": 1973, "p": 69000, "r": "RARE", "cl": "D", "pi": "394", "find": ""}, {"mfr": "Ford", "model": "Crown Victoria Police Interceptor", "y": 2010, "p": 15000, "r": "COMMON", "cl": "D", "pi": "354", "find": ""}, {"mfr": "Ford", "model": "De Luxe Five-Window Coupe", "y": 1932, "p": 36000, "r": "COMMON", "cl": "D", "pi": "100", "find": ""}, {"mfr": "Ford", "model": "Escort RS Cosworth", "y": 1992, "p": 65000, "r": "RARE", "cl": "C", "pi": "456", "find": ""}, {"mfr": "Ford", "model": "F-150 Lightning", "y": 2022, "p": 250000, "r": "EPIC", "cl": "C", "pi": "500", "find": "Wheelspin only"}, {"mfr": "Ford", "model": "F-150 Raptor R", "y": 2023, "p": 110000, "r": "EPIC", "cl": "B", "pi": "536", "find": ""}, {"mfr": "Ford", "model": "F-150 Raptor R 'Welcome Pack'", "y": 2023, "p": 50000, "r": "LEGENDARY", "cl": "B", "pi": "600", "find": "Requires Welcome Pack"}, {"mfr": "Ford", "model": "F-150 SVT Lightning", "y": 2003, "p": 250000, "r": "COMMON", "cl": "C", "pi": "474", "find": "Hard to Find"}, {"mfr": "Ford", "model": "F-150 XLT Lariat", "y": 1986, "p": 45000, "r": "COMMON", "cl": "D", "pi": "263", "find": ""}, {"mfr": "Ford", "model": "F-150 XLT Lariat Forza Edition", "y": 1986, "p": 500000, "r": "FORZAEDITION", "cl": "S2", "pi": "850", "find": "Wheelspin only"}, {"mfr": "Ford", "model": "FPV Limited Edition Pursuit Ute", "y": 2014, "p": 40000, "r": "COMMON", "cl": "B", "pi": "563", "find": ""}, {"mfr": "Ford", "model": "Fiesta ST (2023)", "y": 2023, "p": 26000, "r": "COMMON", "cl": "C", "pi": "500", "find": ""}, {"mfr": "Ford", "model": "Focus RS (2003)", "y": 2003, "p": 35000, "r": "COMMON", "cl": "C", "pi": "484", "find": ""}, {"mfr": "Ford", "model": "Focus RS (2009)", "y": 2009, "p": 52000, "r": "EPIC", "cl": "B", "pi": "551", "find": ""}, {"mfr": "Ford", "model": "Focus RS (2017)", "y": 2017, "p": 37000, "r": "EPIC", "cl": "B", "pi": "588", "find": "Journal: 150 pts in \"Car Collection\""}, {"mfr": "Ford", "model": "Focus ST (2022)", "y": 2022, "p": 34000, "r": "COMMON", "cl": "B", "pi": "594", "find": ""}, {"mfr": "Ford", "model": "GT (2005)", "y": 2005, "p": 585000, "r": "UNKNOWN", "cl": "A", "pi": "676", "find": "Treasure Car (Southeast Nangan)"}, {"mfr": "Ford", "model": "GT (2017)", "y": 2017, "p": 500000, "r": "EPIC", "cl": "S1", "pi": "757", "find": ""}, {"mfr": "Ford", "model": "M-Sport Fiesta RS", "y": 2017, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "707", "find": "Wheelspin only"}, {"mfr": "Ford", "model": "Mustang Boss 302", "y": 1969, "p": 75000, "r": "RARE", "cl": "C", "pi": "468", "find": ""}, {"mfr": "Ford", "model": "Mustang Dark Horse", "y": 2024, "p": 59000, "r": "EPIC", "cl": "A", "pi": "669", "find": "Journal: 400 pts in \"Speed Traps\""}, {"mfr": "Ford", "model": "Mustang GT (2024)", "y": 2024, "p": 45000, "r": "EPIC", "cl": "A", "pi": "628", "find": ""}, {"mfr": "Ford", "model": "Mustang GT 2+2 Fastback", "y": 1968, "p": 119000, "r": "LEGENDARY", "cl": "D", "pi": "394", "find": ""}, {"mfr": "Ford", "model": "Mustang GT 2+2 Fastback Forza Edition", "y": 1968, "p": 500000, "r": "FORZAEDITION", "cl": "A", "pi": "700", "find": "Wheelspin only"}, {"mfr": "Ford", "model": "Mustang GT Coupe", "y": 1965, "p": 52000, "r": "EPIC", "cl": "D", "pi": "388", "find": ""}, {"mfr": "Ford", "model": "Mustang RTR Spec 5", "y": 2018, "p": 35000, "r": "RARE", "cl": "A", "pi": "648", "find": ""}, {"mfr": "Ford", "model": "Mustang SVT Cobra R (1993)", "y": 1993, "p": 84000, "r": "COMMON", "cl": "C", "pi": "432", "find": ""}, {"mfr": "Ford", "model": "Mustang SVT Cobra R (2000)", "y": 2000, "p": 153000, "r": "COMMON", "cl": "B", "pi": "528", "find": ""}, {"mfr": "Ford", "model": "Mustang Shelby GT350R", "y": 2016, "p": 88000, "r": "RARE", "cl": "S1", "pi": "721", "find": ""}, {"mfr": "Ford", "model": "Mustang Shelby GT500 (2013)", "y": 2013, "p": 60000, "r": "RARE", "cl": "A", "pi": "647", "find": ""}, {"mfr": "Ford", "model": "Mustang Shelby GT500 (2020)", "y": 2020, "p": 125000, "r": "RARE", "cl": "S1", "pi": "734", "find": ""}, {"mfr": "Ford", "model": "RS200 Evolution", "y": 1985, "p": 420000, "r": "EPIC", "cl": "S1", "pi": "710", "find": "Green Wristband"}, {"mfr": "Ford", "model": "Racing Puma", "y": 1999, "p": 30000, "r": "RARE", "cl": "C", "pi": "401", "find": ""}, {"mfr": "Ford", "model": "Ranger T6 Rally Raid", "y": 2014, "p": 350000, "r": "EPIC", "cl": "B", "pi": "530", "find": "Wheelspin only"}, {"mfr": "Ford", "model": "Sierra Cosworth RS500", "y": 1987, "p": 79000, "r": "UNKNOWN", "cl": "C", "pi": "484", "find": "Barn Find (Southwest Ito)"}, {"mfr": "Ford", "model": "Super Duty F-450 DRW PLATINUM", "y": 2020, "p": 65000, "r": "COMMON", "cl": "D", "pi": "379", "find": ""}, {"mfr": "Ford", "model": "Super Duty F-450 DRW PLATINUM Forza Edition", "y": 2020, "p": 500000, "r": "FORZAEDITION", "cl": "A", "pi": "700", "find": "Wheelspin only"}, {"mfr": "Ford", "model": "Supervan 3", "y": 1994, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "740", "find": ""}, {"mfr": "Ford", "model": "Supervan 4", "y": 2022, "p": 2000000, "r": "EPIC", "cl": "R", "pi": "919", "find": "Car Mastery (Ford Supervan 3)"}, {"mfr": "Ford", "model": "Transit SuperSportVan", "y": 2011, "p": 42000, "r": "RARE", "cl": "D", "pi": "235", "find": ""}, {"mfr": "Ford", "model": "XB Falcon GT", "y": 1973, "p": 218000, "r": "RARE", "cl": "C", "pi": "422", "find": ""}, {"mfr": "Formula", "model": "Drift 117 599 GTB Fiorano", "y": 2007, "p": 525000, "r": "EPIC", "cl": "S1", "pi": "767", "find": "Journal: 400 pts in \"Skills\""}, {"mfr": "Formula", "model": "Drift 13 Ford Mustang", "y": 2015, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "739", "find": "Wheelspin only"}, {"mfr": "Formula", "model": "Drift 151 Toyota GR Supra", "y": 2020, "p": 185000, "r": "EPIC", "cl": "S1", "pi": "779", "find": ""}, {"mfr": "Formula", "model": "Drift 34 Toyota Supra MkIV", "y": 1995, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "759", "find": ""}, {"mfr": "Formula", "model": "Drift 411 Toyota Corolla Hatchback", "y": 2019, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "754", "find": ""}, {"mfr": "Formula", "model": "Drift 43 Dodge Viper SRT10", "y": 2006, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "748", "find": "Wheelspin only"}, {"mfr": "Formula", "model": "Drift 530 HSV Maloo Gen-F", "y": 2016, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "710", "find": ""}, {"mfr": "Formula", "model": "Drift 64 Forsberg Racing Nissan Z", "y": 2023, "p": 200000, "r": "EPIC", "cl": "S1", "pi": "783", "find": ""}, {"mfr": "Formula", "model": "Drift 777 Chevrolet Corvette", "y": 2013, "p": 275000, "r": "EPIC", "cl": "S1", "pi": "760", "find": ""}, {"mfr": "Formula", "model": "Drift 777 Nissan 240SX", "y": 1997, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "748", "find": "Journal: 1,800 pts in \"Drift Club Japan\""}, {"mfr": "Formula", "model": "Drift 91 BMW M2", "y": 2020, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "748", "find": ""}, {"mfr": "Formula", "model": "Drift 98 BMW 325i", "y": 1989, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "726", "find": ""}, {"mfr": "Formula", "model": "Drift 99 Mazda RX-8", "y": 2009, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "737", "find": "Journal: 1,500 pts in \"Drift Zones\""}, {"mfr": "Funco", "model": "Motorsports F9", "y": 2018, "p": 300000, "r": "EPIC", "cl": "S1", "pi": "752", "find": "Journal: 3,500 pts in \"Bonus Boards\""}, {"mfr": "GMC", "model": "HUMMER EV Pickup", "y": 2022, "p": 95000, "r": "EPIC", "cl": "A", "pi": "610", "find": ""}, {"mfr": "GMC", "model": "Jimmy", "y": 1970, "p": 60000, "r": "COMMON", "cl": "C", "pi": "416", "find": "Complete the Prologue"}, {"mfr": "GMC", "model": "Syclone", "y": 1991, "p": 46000, "r": "EPIC", "cl": "C", "pi": "446", "find": ""}, {"mfr": "GMC", "model": "Typhoon", "y": 1992, "p": 38000, "r": "EPIC", "cl": "C", "pi": "435", "find": ""}, {"mfr": "GR", "model": "GT Prototype", "y": 2025, "p": 250000, "r": "LEGENDARY", "cl": "S1", "pi": "771", "find": ""}, {"mfr": "Gordon", "model": "Murray Automotive T.50", "y": 2022, "p": 3050000, "r": "LEGENDARY", "cl": "S2", "pi": "871", "find": "Journal: 2,500 pts in \"Speed Traps\""}, {"mfr": "HSV", "model": "GEN-F GTS", "y": 2014, "p": 81000, "r": "RARE", "cl": "A", "pi": "601", "find": ""}, {"mfr": "HSV", "model": "Limited Edition Gen-F GTS Maloo", "y": 2014, "p": 65000, "r": "COMMON", "cl": "A", "pi": "629", "find": ""}, {"mfr": "Hennessey", "model": "Ford F-150 VelociRaptor 6x6", "y": 2019, "p": 375000, "r": "LEGENDARY", "cl": "B", "pi": "520", "find": ""}, {"mfr": "Hennessey", "model": "Venom F5", "y": 2021, "p": 2050000, "r": "LEGENDARY", "cl": "S2", "pi": "870", "find": ""}, {"mfr": "Hennessey", "model": "Venom GT", "y": 2012, "p": 1400000, "r": "LEGENDARY", "cl": "S2", "pi": "845", "find": "Wheelspin only"}, {"mfr": "Holden", "model": "Torana A9X", "y": 1977, "p": 500000, "r": "RARE", "cl": "C", "pi": "413", "find": ""}, {"mfr": "Honda", "model": "19 101 Motorsport CRX WTAC", "y": 1990, "p": 150000, "r": "EPIC", "cl": "S2", "pi": "877", "find": "Requires Time AttackCar Pack"}, {"mfr": "Honda", "model": "21 Hardrace/JDMYard Civic WTAC", "y": 1992, "p": 150000, "r": "EPIC", "cl": "R", "pi": "913", "find": "Requires Time AttackCar Pack"}, {"mfr": "Honda", "model": "33 Integra WTAC", "y": 2001, "p": 150000, "r": "EPIC", "cl": "S2", "pi": "860", "find": "Requires Time AttackCar Pack"}, {"mfr": "Honda", "model": "52 Evasive Motorsports S2000 WTAC", "y": 2004, "p": 320000, "r": "EPIC", "cl": "S2", "pi": "888", "find": "Requires Time AttackCar Pack"}, {"mfr": "Honda", "model": "Acty", "y": 1994, "p": 9000, "r": "COMMON", "cl": "D", "pi": "100", "find": "Journal: 750 pts in \"Tokyo City Food Delivery\""}, {"mfr": "Honda", "model": "Beat", "y": 1991, "p": 15000, "r": "RARE", "cl": "D", "pi": "283", "find": "Journal: 250 pts in \"Regional Mascots\""}, {"mfr": "Honda", "model": "CR-X SiR", "y": 1991, "p": 250000, "r": "COMMON", "cl": "C", "pi": "465", "find": "Hard to Find"}, {"mfr": "Honda", "model": "City E II", "y": 1984, "p": 7500, "r": "EPIC", "cl": "D", "pi": "203", "find": "Journal: 500 pts in \"Yuji's Auto\""}, {"mfr": "Honda", "model": "Civic CRX Mugen", "y": 1984, "p": 50000, "r": "EPIC", "cl": "D", "pi": "390", "find": "Journal: 1,800 pts in \"Moto Auto Zine\""}, {"mfr": "Honda", "model": "Civic RS", "y": 1974, "p": 14000, "r": "COMMON", "cl": "D", "pi": "254", "find": "Car Mastery (Honda Civic Type R (2023))"}, {"mfr": "Honda", "model": "Civic Si (1986)", "y": 1986, "p": 10000, "r": "EPIC", "cl": "D", "pi": "253", "find": ""}, {"mfr": "Honda", "model": "Civic Type R (1997)", "y": 1997, "p": 30000, "r": "COMMON", "cl": "C", "pi": "430", "find": ""}, {"mfr": "Honda", "model": "Civic Type R (2004)", "y": 2004, "p": 15000, "r": "COMMON", "cl": "C", "pi": "480", "find": ""}, {"mfr": "Honda", "model": "Civic Type R (2007)", "y": 2007, "p": 17000, "r": "COMMON", "cl": "C", "pi": "454", "find": ""}, {"mfr": "Honda", "model": "Civic Type R (2008)", "y": 2008, "p": 20000, "r": "RARE", "cl": "B", "pi": "514", "find": "Requires Car Pass"}, {"mfr": "Honda", "model": "Civic Type R (2015)", "y": 2015, "p": 30000, "r": "COMMON", "cl": "B", "pi": "585", "find": ""}, {"mfr": "Honda", "model": "Civic Type R (2018)", "y": 2018, "p": 35000, "r": "RARE", "cl": "A", "pi": "608", "find": ""}, {"mfr": "Honda", "model": "Civic Type R (2023)", "y": 2023, "p": 43000, "r": "RARE", "cl": "A", "pi": "620", "find": "Journal: 200 pts in \"Car Upgrades\""}, {"mfr": "Honda", "model": "NSX-R (1992)", "y": 1992, "p": 450000, "r": "EPIC", "cl": "B", "pi": "572", "find": ""}, {"mfr": "Honda", "model": "NSX-R (2005)", "y": 2005, "p": 325000, "r": "EPIC", "cl": "B", "pi": "570", "find": "Journal: 1,500 pts in \"Regional Mascots\""}, {"mfr": "Honda", "model": "NSX-R GT", "y": 2005, "p": 600000, "r": "UNKNOWN", "cl": "A", "pi": "608", "find": "Barn Find (South of the Horizon Festival)"}, {"mfr": "Honda", "model": "Prelude Si", "y": 1994, "p": 15000, "r": "COMMON", "cl": "C", "pi": "410", "find": "Journal: 250 pts in \"Photography\""}, {"mfr": "Honda", "model": "Ridgeline Baja Trophy Truck", "y": 2015, "p": 400000, "r": "EPIC", "cl": "B", "pi": "579", "find": ""}, {"mfr": "Honda", "model": "S2000", "y": 2003, "p": 55000, "r": "COMMON", "cl": "B", "pi": "503", "find": ""}, {"mfr": "Honda", "model": "S800", "y": 1970, "p": 40000, "r": "COMMON", "cl": "D", "pi": "134", "find": ""}, {"mfr": "Honda", "model": "e", "y": 2022, "p": 30000, "r": "COMMON", "cl": "D", "pi": "398", "find": ""}, {"mfr": "Hyundai", "model": "IONIQ 5 N", "y": 2023, "p": 22000, "r": "RARE", "cl": "A", "pi": "657", "find": ""}, {"mfr": "Hyundai", "model": "N Vision 74", "y": 2022, "p": 325000, "r": "RARE", "cl": "A", "pi": "692", "find": ""}, {"mfr": "Hyundai", "model": "Veloster N", "y": 2019, "p": 20000, "r": "EPIC", "cl": "B", "pi": "532", "find": ""}, {"mfr": "Hyundai", "model": "i20 N", "y": 2021, "p": 48000, "r": "RARE", "cl": "B", "pi": "564", "find": ""}, {"mfr": "Hyundai", "model": "i30 N", "y": 2020, "p": 32000, "r": "RARE", "cl": "B", "pi": "553", "find": ""}, {"mfr": "Jaguar", "model": "C-X75", "y": 2010, "p": 3200000, "r": "LEGENDARY", "cl": "S2", "pi": "810", "find": ""}, {"mfr": "Jaguar", "model": "D-Type", "y": 1956, "p": 4300000, "r": "LEGENDARY", "cl": "B", "pi": "506", "find": ""}, {"mfr": "Jaguar", "model": "E-type", "y": 1961, "p": 250000, "r": "EPIC", "cl": "C", "pi": "414", "find": "Wheelspin only"}, {"mfr": "Jaguar", "model": "Lightweight E-Type", "y": 1964, "p": 7900000, "r": "LEGENDARY", "cl": "B", "pi": "568", "find": ""}, {"mfr": "Jaguar", "model": "Sport XJR-15", "y": 1991, "p": 950000, "r": "LEGENDARY", "cl": "S1", "pi": "716", "find": "Journal: 900 pts in \"Car Collection\""}, {"mfr": "Jaguar", "model": "XJ220", "y": 1993, "p": 570000, "r": "LEGENDARY", "cl": "A", "pi": "676", "find": ""}, {"mfr": "Jaguar", "model": "XJ220S TWR", "y": 1993, "p": 540000, "r": "RARE", "cl": "S1", "pi": "750", "find": ""}, {"mfr": "Jeep", "model": "Grand Cherokee Trackhawk", "y": 2018, "p": 72000, "r": "COMMON", "cl": "A", "pi": "631", "find": ""}, {"mfr": "Jeep", "model": "JT", "y": 2020, "p": 36000, "r": "COMMON", "cl": "D", "pi": "336", "find": ""}, {"mfr": "Jeep", "model": "Trailcat", "y": 2016, "p": 70000, "r": "RARE", "cl": "A", "pi": "635", "find": ""}, {"mfr": "Jeep", "model": "Wrangler Rubicon", "y": 2012, "p": 16000, "r": "COMMON", "cl": "D", "pi": "350", "find": ""}, {"mfr": "Jimco", "model": "179 Hammerhead Class 1", "y": 2020, "p": 95000, "r": "RARE", "cl": "A", "pi": "652", "find": ""}, {"mfr": "Jimco", "model": "240 Fastball Racing Spec Trophy Truck", "y": 2019, "p": 350000, "r": "EPIC", "cl": "B", "pi": "511", "find": ""}, {"mfr": "KTM", "model": "X-Bow GT4", "y": 2018, "p": 90000, "r": "EPIC", "cl": "S1", "pi": "749", "find": ""}, {"mfr": "Koenigsegg", "model": "Agera", "y": 2011, "p": 1950000, "r": "LEGENDARY", "cl": "S2", "pi": "810", "find": ""}, {"mfr": "Koenigsegg", "model": "Agera RS", "y": 2017, "p": 2900000, "r": "LEGENDARY", "cl": "S2", "pi": "890", "find": "Journal: 2,100 pts in \"Discovery\""}, {"mfr": "Koenigsegg", "model": "CCGT", "y": 2008, "p": 3400000, "r": "LEGENDARY", "cl": "S2", "pi": "900", "find": ""}, {"mfr": "Koenigsegg", "model": "Gemera", "y": 2024, "p": 0, "r": "EPIC", "cl": "S2", "pi": "900", "find": "Requires Car Pass"}, {"mfr": "Koenigsegg", "model": "Jesko", "y": 2020, "p": 3500000, "r": "LEGENDARY", "cl": "S2", "pi": "899", "find": ""}, {"mfr": "Koenigsegg", "model": "One:1", "y": 2015, "p": 3750000, "r": "LEGENDARY", "cl": "S2", "pi": "890", "find": "Wheelspin only"}, {"mfr": "Koenigsegg", "model": "Regera", "y": 2016, "p": 2550000, "r": "LEGENDARY", "cl": "S2", "pi": "886", "find": ""}, {"mfr": "Lamborghini", "model": "Aventador LP 780-4 Ultimae", "y": 2021, "p": 800000, "r": "LEGENDARY", "cl": "S1", "pi": "794", "find": "Gold Wristband"}, {"mfr": "Lamborghini", "model": "Aventador LP700-4", "y": 2012, "p": 345000, "r": "EPIC", "cl": "S1", "pi": "753", "find": "Wheelspin only"}, {"mfr": "Lamborghini", "model": "Aventador SVJ", "y": 2018, "p": 1200000, "r": "LEGENDARY", "cl": "S1", "pi": "794", "find": ""}, {"mfr": "Lamborghini", "model": "Centenario LP 770-4", "y": 2016, "p": 1750000, "r": "LEGENDARY", "cl": "S1", "pi": "792", "find": "Wheelspin, Loyalty Reward"}, {"mfr": "Lamborghini", "model": "Countach LP5000 QV", "y": 1988, "p": 600000, "r": "EPIC", "cl": "A", "pi": "622", "find": "Hard to Find"}, {"mfr": "Lamborghini", "model": "Countach LPI 800-4", "y": 2021, "p": 2100000, "r": "LEGENDARY", "cl": "S1", "pi": "773", "find": ""}, {"mfr": "Lamborghini", "model": "Diablo GTR", "y": 1999, "p": 680000, "r": "EPIC", "cl": "S2", "pi": "823", "find": "Wheelspin only"}, {"mfr": "Lamborghini", "model": "Diablo SV", "y": 1997, "p": 375000, "r": "UNKNOWN", "cl": "A", "pi": "649", "find": "Barn Find (East Ito)"}, {"mfr": "Lamborghini", "model": "Essenza SCV12", "y": 2020, "p": 1500000, "r": "LEGENDARY", "cl": "R", "pi": "911", "find": ""}, {"mfr": "Lamborghini", "model": "Gallardo LP570-4 Spyder Performante", "y": 2012, "p": 210000, "r": "EPIC", "cl": "A", "pi": "685", "find": ""}, {"mfr": "Lamborghini", "model": "Hurac\u00e1n EVO", "y": 2020, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "761", "find": "Hard to Find"}, {"mfr": "Lamborghini", "model": "Hurac\u00e1n LP 610-4", "y": 2014, "p": 200000, "r": "EPIC", "cl": "S1", "pi": "738", "find": "Wheelspin, Loyalty Reward"}, {"mfr": "Lamborghini", "model": "Hurac\u00e1n STO", "y": 2020, "p": 325000, "r": "LEGENDARY", "cl": "S1", "pi": "783", "find": ""}, {"mfr": "Lamborghini", "model": "Hurac\u00e1n Sterrato", "y": 2023, "p": 325000, "r": "LEGENDARY", "cl": "S1", "pi": "738", "find": "Journal: 7,610 pts in \"Dirt Racing\""}, {"mfr": "Lamborghini", "model": "Hurac\u00e1n Tecnica", "y": 2022, "p": 365000, "r": "LEGENDARY", "cl": "S1", "pi": "747", "find": ""}, {"mfr": "Lamborghini", "model": "Miura P400", "y": 1967, "p": 1700000, "r": "LEGENDARY", "cl": "B", "pi": "505", "find": ""}, {"mfr": "Lamborghini", "model": "Murci\u00e9lago LP 670-4 SV", "y": 2010, "p": 1000000, "r": "EPIC", "cl": "S1", "pi": "707", "find": ""}, {"mfr": "Lamborghini", "model": "Revuelto", "y": 2024, "p": 365000, "r": "LEGENDARY", "cl": "S2", "pi": "829", "find": "Journal: 2,500 pts in \"Road Racing\""}, {"mfr": "Lamborghini", "model": "Sesto Elemento", "y": 2011, "p": 2500000, "r": "LEGENDARY", "cl": "S2", "pi": "871", "find": "Wheelspin only"}, {"mfr": "Lamborghini", "model": "Si\u00e1n Roadster", "y": 2020, "p": 2500000, "r": "LEGENDARY", "cl": "S1", "pi": "797", "find": ""}, {"mfr": "Lamborghini", "model": "Urus", "y": 2019, "p": 200000, "r": "RARE", "cl": "A", "pi": "659", "find": "Journal: 1,675 pts in \"Horizon Play\""}, {"mfr": "Lamborghini", "model": "Veneno", "y": 2013, "p": 3950000, "r": "LEGENDARY", "cl": "S2", "pi": "834", "find": ""}, {"mfr": "Lancia", "model": "Delta HF Integrale Evo", "y": 1992, "p": 110000, "r": "COMMON", "cl": "C", "pi": "489", "find": ""}, {"mfr": "Lancia", "model": "Delta S4", "y": 1986, "p": 55000, "r": "RARE", "cl": "B", "pi": "564", "find": ""}, {"mfr": "Lancia", "model": "Stratos HF Stradale", "y": 1974, "p": 680000, "r": "UNKNOWN", "cl": "C", "pi": "483", "find": "Treasure Car (Central Sotoyama)"}, {"mfr": "Land Rover", "model": "Defender 110 X", "y": 2020, "p": 250000, "r": "COMMON", "cl": "C", "pi": "427", "find": ""}, {"mfr": "Land Rover", "model": "Range Rover Sport SVR", "y": 2015, "p": 48000, "r": "RARE", "cl": "A", "pi": "604", "find": "Journal: 200 pts in \"Danger Signs\""}, {"mfr": "Lexus", "model": "LC 500", "y": 2021, "p": 79000, "r": "RARE", "cl": "B", "pi": "592", "find": ""}, {"mfr": "Lexus", "model": "LFA", "y": 2010, "p": 875000, "r": "EPIC", "cl": "A", "pi": "699", "find": ""}, {"mfr": "Lexus", "model": "LFA Forza Edition", "y": 2010, "p": 1250000, "r": "FORZAEDITION", "cl": "S2", "pi": "900", "find": "Journal: 7,000 pts in \"Touge & Street Racing\""}, {"mfr": "Lexus", "model": "RC F", "y": 2015, "p": 35000, "r": "RARE", "cl": "A", "pi": "623", "find": ""}, {"mfr": "Lincoln", "model": "Continental (1962)", "y": 1962, "p": 65000, "r": "UNKNOWN", "cl": "D", "pi": "267", "find": "Barn Find (West of The Estate)"}, {"mfr": "Lotus", "model": "Elise GT1", "y": 1997, "p": 1500000, "r": "LEGENDARY", "cl": "S1", "pi": "709", "find": ""}, {"mfr": "Lotus", "model": "Elise Series 1 Sport 190", "y": 1999, "p": 47000, "r": "COMMON", "cl": "B", "pi": "589", "find": ""}, {"mfr": "Lotus", "model": "Emira", "y": 2023, "p": 250000, "r": "RARE", "cl": "A", "pi": "656", "find": "Hard to Find"}, {"mfr": "Lotus", "model": "Evija", "y": 2020, "p": 2450000, "r": "LEGENDARY", "cl": "R", "pi": "937", "find": ""}, {"mfr": "Lotus", "model": "Evija Forza Edition", "y": 2020, "p": 500000, "r": "FORZAEDITION", "cl": "S2", "pi": "900", "find": "Gifted (VIP Membership)"}, {"mfr": "Lotus", "model": "Exige Cup 430", "y": 2018, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "732", "find": "Hard to Find"}, {"mfr": "Lotus", "model": "Scura Motorsports Exige WTAC", "y": 2018, "p": 400000, "r": "LEGENDARY", "cl": "R", "pi": "998", "find": "Journal: 9,360 pts in \"Road Racing\""}, {"mfr": "Lucid", "model": "Air Sapphire", "y": 2024, "p": 240000, "r": "RARE", "cl": "S2", "pi": "820", "find": ""}, {"mfr": "MG", "model": "Metro 6R4", "y": 1986, "p": 220000, "r": "LEGENDARY", "cl": "A", "pi": "627", "find": "Journal: 2,500 pts in \"Dirt Racing\""}, {"mfr": "MINI", "model": "Cooper S (1965)", "y": 1965, "p": 39000, "r": "RARE", "cl": "D", "pi": "158", "find": ""}, {"mfr": "MINI", "model": "John Cooper Works GP (2012)", "y": 2012, "p": 30000, "r": "RARE", "cl": "B", "pi": "509", "find": ""}, {"mfr": "MINI", "model": "John Cooper Works GP (2021)", "y": 2021, "p": 250000, "r": "RARE", "cl": "B", "pi": "599", "find": "Hard to Find"}, {"mfr": "MINI", "model": "X-Raid All4 Racing Countryman", "y": 2013, "p": 220000, "r": "EPIC", "cl": "B", "pi": "523", "find": ""}, {"mfr": "MINI", "model": "X-Raid John Cooper Works Buggy", "y": 2018, "p": 425000, "r": "EPIC", "cl": "B", "pi": "514", "find": "Journal: 6,910 pts in \"Cross Country Racing\""}, {"mfr": "Maserati", "model": "Ghibli Cup", "y": 1997, "p": 102000, "r": "RARE", "cl": "B", "pi": "591", "find": "Journal: 525 pts in \"Car Collection\""}, {"mfr": "Maserati", "model": "MC12", "y": 2004, "p": 3750000, "r": "EPIC", "cl": "S1", "pi": "751", "find": "Hard to Find"}, {"mfr": "Maserati", "model": "MC12 Versione Corsa", "y": 2008, "p": 3100000, "r": "LEGENDARY", "cl": "R", "pi": "912", "find": ""}, {"mfr": "Maserati", "model": "MC20", "y": 2022, "p": 220000, "r": "EPIC", "cl": "S1", "pi": "753", "find": ""}, {"mfr": "Mazda", "model": "123 Mad Mike 808 Wagon 'FURSTY'", "y": 1974, "p": 0, "r": "LEGENDARY", "cl": "S1", "pi": "702", "find": "Requires Car Pass"}, {"mfr": "Mazda", "model": "55 Mazda 787B", "y": 1991, "p": 1220000, "r": "UNKNOWN", "cl": "R", "pi": "988", "find": "Barn Find (Central Takashiro)"}, {"mfr": "Mazda", "model": "Cosmo 110S Series II", "y": 1972, "p": 250000, "r": "EPIC", "cl": "D", "pi": "394", "find": "Hard to Find"}, {"mfr": "Mazda", "model": "Furai", "y": 2008, "p": 353000, "r": "LEGENDARY", "cl": "R", "pi": "926", "find": "Hard to Find"}, {"mfr": "Mazda", "model": "MX-5 (2013)", "y": 2013, "p": 28000, "r": "COMMON", "cl": "C", "pi": "432", "find": ""}, {"mfr": "Mazda", "model": "MX-5 (2016)", "y": 2016, "p": 18000, "r": "EPIC", "cl": "C", "pi": "499", "find": ""}, {"mfr": "Mazda", "model": "MX-5 Cup (2017)", "y": 2017, "p": 60000, "r": "EPIC", "cl": "B", "pi": "586", "find": "Journal: 300 pts in \"Horizon Play\""}, {"mfr": "Mazda", "model": "MX-5 Miata (1994)", "y": 1994, "p": 15000, "r": "COMMON", "cl": "D", "pi": "329", "find": ""}, {"mfr": "Mazda", "model": "MX-5 Miata Forza Edition", "y": 1994, "p": 500000, "r": "FORZAEDITION", "cl": "S2", "pi": "850", "find": "Aftermarket Car (Horizon Festival Drag Strip)"}, {"mfr": "Mazda", "model": "MX-5 Miata RF", "y": 2022, "p": 29000, "r": "EPIC", "cl": "B", "pi": "509", "find": ""}, {"mfr": "Mazda", "model": "Mazdaspeed 3 (2010)", "y": 2010, "p": 25000, "r": "COMMON", "cl": "B", "pi": "536", "find": ""}, {"mfr": "Mazda", "model": "Mazdaspeed MX-5", "y": 2005, "p": 21000, "r": "COMMON", "cl": "C", "pi": "469", "find": ""}, {"mfr": "Mazda", "model": "RX-3", "y": 1973, "p": 73000, "r": "COMMON", "cl": "D", "pi": "328", "find": ""}, {"mfr": "Mazda", "model": "RX-3 Forza Edition", "y": 1973, "p": 500000, "r": "FORZAEDITION", "cl": "B", "pi": "600", "find": "Aftermarket Car (Daikoku Parking Area)"}, {"mfr": "Mazda", "model": "RX-7 GSL-SE", "y": 1985, "p": 30000, "r": "UNKNOWN", "cl": "D", "pi": "357", "find": "Treasure Car (Northwest Ohtani)"}, {"mfr": "Mazda", "model": "RX-7 Type R", "y": 1992, "p": 40000, "r": "RARE", "cl": "B", "pi": "548", "find": "Journal: 200 pts in \"Drift Zones\""}, {"mfr": "Mazda", "model": "RX-8 R3", "y": 2011, "p": 33000, "r": "RARE", "cl": "B", "pi": "508", "find": ""}, {"mfr": "Mazda", "model": "Savanna RX-7", "y": 1990, "p": 23000, "r": "EPIC", "cl": "C", "pi": "451", "find": ""}, {"mfr": "McLaren", "model": "12C Coup\u00e9", "y": 2011, "p": 105000, "r": "EPIC", "cl": "S1", "pi": "727", "find": ""}, {"mfr": "McLaren", "model": "570S Coup\u00e9", "y": 2015, "p": 130000, "r": "EPIC", "cl": "S1", "pi": "721", "find": ""}, {"mfr": "McLaren", "model": "600LT Coup\u00e9", "y": 2018, "p": 260000, "r": "EPIC", "cl": "S1", "pi": "780", "find": ""}, {"mfr": "McLaren", "model": "620R", "y": 2021, "p": 260000, "r": "EPIC", "cl": "S1", "pi": "773", "find": "Wheelspin only"}, {"mfr": "McLaren", "model": "650S Spider", "y": 2014, "p": 130000, "r": "EPIC", "cl": "S1", "pi": "765", "find": ""}, {"mfr": "McLaren", "model": "765LT Coup\u00e9", "y": 2021, "p": 358000, "r": "EPIC", "cl": "S2", "pi": "829", "find": ""}, {"mfr": "McLaren", "model": "Artura", "y": 2023, "p": 220000, "r": "EPIC", "cl": "S1", "pi": "766", "find": ""}, {"mfr": "McLaren", "model": "F1", "y": 1993, "p": 5000000, "r": "LEGENDARY", "cl": "S1", "pi": "713", "find": ""}, {"mfr": "McLaren", "model": "F1 GT", "y": 1997, "p": 5500000, "r": "LEGENDARY", "cl": "S1", "pi": "769", "find": ""}, {"mfr": "McLaren", "model": "P1", "y": 2013, "p": 1550000, "r": "LEGENDARY", "cl": "S2", "pi": "848", "find": ""}, {"mfr": "McLaren", "model": "Sabre", "y": 2021, "p": 3400000, "r": "EPIC", "cl": "S1", "pi": "787", "find": "Hard to Find"}, {"mfr": "McLaren", "model": "Speedtail", "y": 2019, "p": 2000000, "r": "LEGENDARY", "cl": "S2", "pi": "835", "find": ""}, {"mfr": "Mercedes-AMG", "model": "C 63 S Coup\u00e9", "y": 2016, "p": 34000, "r": "RARE", "cl": "A", "pi": "645", "find": ""}, {"mfr": "Mercedes-AMG", "model": "E 63 S", "y": 2018, "p": 63000, "r": "EPIC", "cl": "A", "pi": "674", "find": ""}, {"mfr": "Mercedes-AMG", "model": "GT 4-Door Coup\u00e9", "y": 2018, "p": 250000, "r": "EPIC", "cl": "A", "pi": "664", "find": "Wheelspin only"}, {"mfr": "Mercedes-AMG", "model": "GT Black Series", "y": 2021, "p": 440000, "r": "EPIC", "cl": "S1", "pi": "782", "find": ""}, {"mfr": "Mercedes-AMG", "model": "GT Black Series 'Welcome Pack'", "y": 2020, "p": 200000, "r": "LEGENDARY", "cl": "S2", "pi": "900", "find": "Requires Welcome Pack"}, {"mfr": "Mercedes-AMG", "model": "GT R", "y": 2017, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "764", "find": "Hard to Find"}, {"mfr": "Mercedes-AMG", "model": "GT S", "y": 2015, "p": 90000, "r": "RARE", "cl": "A", "pi": "691", "find": ""}, {"mfr": "Mercedes-AMG", "model": "Mercedes-AMG ONE", "y": 2021, "p": 2800000, "r": "LEGENDARY", "cl": "S2", "pi": "900", "find": ""}, {"mfr": "Mercedes-AMG", "model": "SL 63", "y": 2021, "p": 120000, "r": "RARE", "cl": "A", "pi": "690", "find": ""}, {"mfr": "Mercedes-AMG", "model": "SLC 43 Final Edition", "y": 2020, "p": 50000, "r": "RARE", "cl": "A", "pi": "620", "find": ""}, {"mfr": "Mercedes-Benz", "model": "190E 2.5-16 Evolution II", "y": 1990, "p": 200000, "r": "EPIC", "cl": "C", "pi": "460", "find": ""}, {"mfr": "Mercedes-Benz", "model": "190E 2.5-16 Evolution II Forza Edition", "y": 1990, "p": 750000, "r": "FORZAEDITION", "cl": "A", "pi": "700", "find": "Wheelspin only"}, {"mfr": "Mercedes-Benz", "model": "300 SL Coup\u00e9", "y": 1954, "p": 1700000, "r": "LEGENDARY", "cl": "D", "pi": "388", "find": ""}, {"mfr": "Mercedes-Benz", "model": "300 SLR", "y": 1955, "p": 60000000, "r": "LEGENDARY", "cl": "B", "pi": "599", "find": ""}, {"mfr": "Mercedes-Benz", "model": "A 45 AMG", "y": 2013, "p": 25000, "r": "RARE", "cl": "B", "pi": "582", "find": ""}, {"mfr": "Mercedes-Benz", "model": "AMG CLK GTR", "y": 1998, "p": 3600000, "r": "LEGENDARY", "cl": "S1", "pi": "713", "find": "Wheelspin only"}, {"mfr": "Mercedes-Benz", "model": "AMG Hammer Coupe", "y": 1987, "p": 225000, "r": "COMMON", "cl": "B", "pi": "565", "find": ""}, {"mfr": "Mercedes-Benz", "model": "C 63 AMG Coup\u00e9 Black Series", "y": 2012, "p": 175000, "r": "EPIC", "cl": "A", "pi": "654", "find": ""}, {"mfr": "Mercedes-Benz", "model": "G 63 AMG 6x6", "y": 2014, "p": 780000, "r": "EPIC", "cl": "C", "pi": "489", "find": "Wheelspin only"}, {"mfr": "Mercedes-Benz", "model": "G 65 AMG", "y": 2013, "p": 120000, "r": "RARE", "cl": "B", "pi": "530", "find": "Journal: 200 pts in \"Trailblazers\""}, {"mfr": "Mercedes-Benz", "model": "SL 65 AMG Black Series", "y": 2009, "p": 360000, "r": "EPIC", "cl": "A", "pi": "699", "find": ""}, {"mfr": "Mercedes-Benz", "model": "Unimog U5023", "y": 2014, "p": 235000, "r": "RARE", "cl": "D", "pi": "100", "find": ""}, {"mfr": "Mercedes-Benz", "model": "X-Class", "y": 2018, "p": 50000, "r": "COMMON", "cl": "D", "pi": "258", "find": ""}, {"mfr": "Meyers", "model": "Manx", "y": 1971, "p": 34000, "r": "EPIC", "cl": "D", "pi": "201", "find": ""}, {"mfr": "Meyers", "model": "Manx 2.0", "y": 2023, "p": 74000, "r": "EPIC", "cl": "B", "pi": "540", "find": ""}, {"mfr": "Mitsubishi", "model": "1 Sierra Sierra Enterprises Lancer Evolution Time Attack", "y": 2005, "p": 90000, "r": "UNKNOWN", "cl": "R", "pi": "962", "find": "Barn Find (North Shimanoyama)"}, {"mfr": "Mitsubishi", "model": "269 Attacking the Clock Racing Minicab Time Attack", "y": 1990, "p": 100000, "r": "EPIC", "cl": "D", "pi": "166", "find": "Requires Time AttackCar Pack"}, {"mfr": "Mitsubishi", "model": "Eclipse GSX", "y": 1995, "p": 35000, "r": "COMMON", "cl": "C", "pi": "436", "find": ""}, {"mfr": "Mitsubishi", "model": "GTO", "y": 1997, "p": 20000, "r": "COMMON", "cl": "C", "pi": "495", "find": ""}, {"mfr": "Mitsubishi", "model": "Galant VR-4", "y": 1992, "p": 25000, "r": "RARE", "cl": "C", "pi": "432", "find": ""}, {"mfr": "Mitsubishi", "model": "Lancer Evolution III GSR", "y": 1995, "p": 29000, "r": "UNKNOWN", "cl": "B", "pi": "517", "find": "Treasure Car (West Takashiro)"}, {"mfr": "Mitsubishi", "model": "Lancer Evolution IX MR", "y": 2006, "p": 250000, "r": "EPIC", "cl": "B", "pi": "521", "find": "Hard to Find"}, {"mfr": "Mitsubishi", "model": "Lancer Evolution VI GSR TM Edition", "y": 2001, "p": 70000, "r": "RARE", "cl": "B", "pi": "574", "find": "Yellow Wristband"}, {"mfr": "Mitsubishi", "model": "Lancer Evolution VIII MR", "y": 2004, "p": 30000, "r": "RARE", "cl": "B", "pi": "555", "find": ""}, {"mfr": "Mitsubishi", "model": "Lancer Evolution VIII MR 'Welcome Pack'", "y": 2004, "p": 100000, "r": "LEGENDARY", "cl": "A", "pi": "700", "find": "Requires Welcome Pack"}, {"mfr": "Mitsubishi", "model": "Lancer Evolution X GSR", "y": 2008, "p": 25000, "r": "RARE", "cl": "B", "pi": "534", "find": ""}, {"mfr": "Mitsubishi", "model": "Montero Evolution", "y": 1997, "p": 50000, "r": "UNKNOWN", "cl": "D", "pi": "346", "find": "Barn Find (East Shimanoyama)"}, {"mfr": "Mitsubishi", "model": "Montero Exceed 2800 TD", "y": 1995, "p": 25000, "r": "RARE", "cl": "D", "pi": "190", "find": ""}, {"mfr": "Nissan", "model": "11 Tomica Skyline Turbo Super Silhouette", "y": 1983, "p": 301000, "r": "UNKNOWN", "cl": "S2", "pi": "847", "find": "Barn Find (Central Ito)"}, {"mfr": "Nissan", "model": "12 Skyline GT-R (BNR32 Gr.A) JTC", "y": 1990, "p": 1500000, "r": "LEGENDARY", "cl": "S2", "pi": "858", "find": "Requires Car Pass"}, {"mfr": "Nissan", "model": "23 Pennzoil NISMO Skyline GT-R", "y": 1998, "p": 600000, "r": "UNKNOWN", "cl": "S2", "pi": "848", "find": "Barn Find (West Takashiro)"}, {"mfr": "Nissan", "model": "240SX", "y": 1993, "p": 250000, "r": "EPIC", "cl": "D", "pi": "339", "find": "Wheelspin only"}, {"mfr": "Nissan", "model": "32 Skyline WTAC 'Xtreme GTR'", "y": 1993, "p": 570000, "r": "EPIC", "cl": "R", "pi": "923", "find": "Requires Time AttackCar Pack"}, {"mfr": "Nissan", "model": "36 Dream Project S15 Silvia WTAC", "y": 2000, "p": 400000, "r": "EPIC", "cl": "R", "pi": "996", "find": "Requires Time AttackCar Pack"}, {"mfr": "Nissan", "model": "370Z", "y": 2010, "p": 250000, "r": "COMMON", "cl": "B", "pi": "568", "find": "Hard to Find"}, {"mfr": "Nissan", "model": "370Z Nismo", "y": 2019, "p": 46000, "r": "RARE", "cl": "A", "pi": "603", "find": ""}, {"mfr": "Nissan", "model": "Be-1", "y": 1987, "p": 23000, "r": "EPIC", "cl": "D", "pi": "175", "find": "Hard to Find"}, {"mfr": "Nissan", "model": "Fairlady Z", "y": 2003, "p": 18000, "r": "COMMON", "cl": "B", "pi": "534", "find": ""}, {"mfr": "Nissan", "model": "Fairlady Z 432", "y": 1969, "p": 250000, "r": "EPIC", "cl": "D", "pi": "369", "find": ""}, {"mfr": "Nissan", "model": "Fairlady Z Version S Twin Turbo", "y": 1994, "p": 40000, "r": "EPIC", "cl": "C", "pi": "497", "find": ""}, {"mfr": "Nissan", "model": "Figaro", "y": 1991, "p": 40000, "r": "UNKNOWN", "cl": "D", "pi": "234", "find": "Treasure Car (Southwest Tokyo)"}, {"mfr": "Nissan", "model": "GT-R (R35)", "y": 2017, "p": 115000, "r": "RARE", "cl": "S1", "pi": "709", "find": ""}, {"mfr": "Nissan", "model": "GT-R Black Edition (R35)", "y": 2012, "p": 80000, "r": "RARE", "cl": "S1", "pi": "703", "find": ""}, {"mfr": "Nissan", "model": "GT-R Black Edition (R35) Forza Edition", "y": 2012, "p": 750000, "r": "FORZAEDITION", "cl": "S2", "pi": "850", "find": "Wheelspin only"}, {"mfr": "Nissan", "model": "GT-R NISMO (2024)", "y": 2024, "p": 220000, "r": "EPIC", "cl": "S1", "pi": "741", "find": "Journal: 1,000 pts in \"Touge & Street Rivals\""}, {"mfr": "Nissan", "model": "GT-R NISMO (R35)", "y": 2020, "p": 270000, "r": "EPIC", "cl": "S1", "pi": "736", "find": ""}, {"mfr": "Nissan", "model": "Gloria Gran Turismo", "y": 1995, "p": 15000, "r": "RARE", "cl": "C", "pi": "498", "find": ""}, {"mfr": "Nissan", "model": "NISMO GT-R LM", "y": 1995, "p": 1100000, "r": "LEGENDARY", "cl": "B", "pi": "544", "find": ""}, {"mfr": "Nissan", "model": "PAO", "y": 1989, "p": 12000, "r": "UNKNOWN", "cl": "D", "pi": "145", "find": "Barn Find (West Minamino)"}, {"mfr": "Nissan", "model": "Pulsar GTI-R", "y": 1990, "p": 28000, "r": "RARE", "cl": "C", "pi": "486", "find": ""}, {"mfr": "Nissan", "model": "R390 (GT1)", "y": 1998, "p": 1000000, "r": "UNKNOWN", "cl": "S1", "pi": "774", "find": "Barn Find (Southwest Ohtani)"}, {"mfr": "Nissan", "model": "S-Cargo", "y": 1989, "p": 19000, "r": "RARE", "cl": "D", "pi": "131", "find": ""}, {"mfr": "Nissan", "model": "S-Cargo Forza Edition", "y": 1989, "p": 500000, "r": "FORZAEDITION", "cl": "S1", "pi": "800", "find": "Wheelspin only"}, {"mfr": "Nissan", "model": "Safari Turbo", "y": 1985, "p": 25000, "r": "UNKNOWN", "cl": "D", "pi": "123", "find": "Treasure Car (North Ito)"}, {"mfr": "Nissan", "model": "Silvia K's (1989)", "y": 1989, "p": 40000, "r": "COMMON", "cl": "C", "pi": "455", "find": "Complete the Prologue"}, {"mfr": "Nissan", "model": "Silvia K's (1994)", "y": 1994, "p": 20000, "r": "COMMON", "cl": "C", "pi": "499", "find": ""}, {"mfr": "Nissan", "model": "Silvia K's Aero", "y": 1998, "p": 22000, "r": "COMMON", "cl": "C", "pi": "494", "find": ""}, {"mfr": "Nissan", "model": "Silvia Spec-R (2002)", "y": 2002, "p": 44000, "r": "COMMON", "cl": "B", "pi": "551", "find": ""}, {"mfr": "Nissan", "model": "Skyline 2000GT-R", "y": 1971, "p": 169000, "r": "UNKNOWN", "cl": "D", "pi": "380", "find": "Barn Find (Southwest Nangan)"}, {"mfr": "Nissan", "model": "Skyline GT-R (1992)", "y": 1992, "p": 72000, "r": "RARE", "cl": "B", "pi": "541", "find": ""}, {"mfr": "Nissan", "model": "Skyline GT-R 40th Anniversary", "y": 1998, "p": 0, "r": "LEGENDARY", "cl": "B", "pi": "547", "find": "Requires Car Pass"}, {"mfr": "Nissan", "model": "Skyline GT-R V-Spec (1997)", "y": 1997, "p": 250000, "r": "RARE", "cl": "B", "pi": "555", "find": "Hard to Find"}, {"mfr": "Nissan", "model": "Skyline GT-R V-spec II (2000)", "y": 2000, "p": 200000, "r": "RARE", "cl": "B", "pi": "590", "find": ""}, {"mfr": "Nissan", "model": "Skyline GTS-R", "y": 1987, "p": 41000, "r": "EPIC", "cl": "C", "pi": "432", "find": ""}, {"mfr": "Nissan", "model": "Skyline H/T 2000GT-R", "y": 1973, "p": 416000, "r": "EPIC", "cl": "C", "pi": "407", "find": ""}, {"mfr": "Nissan", "model": "Stagea RS FOUR V", "y": 1997, "p": 20000, "r": "EPIC", "cl": "C", "pi": "439", "find": ""}, {"mfr": "Nissan", "model": "Z NISMO", "y": 2024, "p": 60000, "r": "EPIC", "cl": "A", "pi": "652", "find": ""}, {"mfr": "Noble", "model": "M600", "y": 2010, "p": 322000, "r": "EPIC", "cl": "S1", "pi": "793", "find": ""}, {"mfr": "Opel", "model": "Manta 400", "y": 1984, "p": 152000, "r": "RARE", "cl": "B", "pi": "576", "find": "Journal: 1,075 pts in \"Dirt Rivals\""}, {"mfr": "Pagani", "model": "Huayra BC Coupe", "y": 2016, "p": 3600000, "r": "LEGENDARY", "cl": "S2", "pi": "851", "find": ""}, {"mfr": "Pagani", "model": "Huayra R", "y": 2021, "p": 2750000, "r": "LEGENDARY", "cl": "R", "pi": "954", "find": "Hard to Find"}, {"mfr": "Pagani", "model": "Zonda Cinque Roadster", "y": 2010, "p": 4000000, "r": "LEGENDARY", "cl": "S2", "pi": "812", "find": ""}, {"mfr": "Pagani", "model": "Zonda R", "y": 2009, "p": 4750000, "r": "LEGENDARY", "cl": "R", "pi": "918", "find": ""}, {"mfr": "Peel", "model": "P50", "y": 1962, "p": 21000, "r": "LEGENDARY", "cl": "D", "pi": "100", "find": ""}, {"mfr": "Peel", "model": "P50 Trolli Edition", "y": 1962, "p": 21000, "r": "LEGENDARY", "cl": "D", "pi": "100", "find": "Promo: Trolli"}, {"mfr": "Penhall", "model": "The Cholla", "y": 2011, "p": 85000, "r": "RARE", "cl": "B", "pi": "541", "find": ""}, {"mfr": "Peugeot", "model": "205 Rallye", "y": 1991, "p": 22000, "r": "RARE", "cl": "D", "pi": "350", "find": ""}, {"mfr": "Peugeot", "model": "205 Turbo 16", "y": 1984, "p": 275000, "r": "UNKNOWN", "cl": "C", "pi": "500", "find": "Barn Find (Northwest Shimanoyama)"}, {"mfr": "Peugeot", "model": "207 Super 2000", "y": 2007, "p": 85000, "r": "EPIC", "cl": "A", "pi": "632", "find": "Pink Wristband"}, {"mfr": "Plymouth", "model": "Barracuda Formula S", "y": 1968, "p": 45000, "r": "RARE", "cl": "C", "pi": "445", "find": ""}, {"mfr": "Plymouth", "model": "Cuda 426 HEMI", "y": 1971, "p": 125000, "r": "EPIC", "cl": "C", "pi": "441", "find": ""}, {"mfr": "Plymouth", "model": "Fury", "y": 1958, "p": 53000, "r": "RARE", "cl": "D", "pi": "361", "find": ""}, {"mfr": "Polaris", "model": "RZR Pro XP Factory Racing Limited Edition", "y": 2021, "p": 50000, "r": "RARE", "cl": "C", "pi": "439", "find": ""}, {"mfr": "Polaris", "model": "RZR Pro XP Ultimate", "y": 2021, "p": 34000, "r": "RARE", "cl": "C", "pi": "496", "find": "Journal: 2,500 pts in \"Cross Country Racing\""}, {"mfr": "Pontiac", "model": "Firebird Trans Am (1977)", "y": 1977, "p": 60000, "r": "RARE", "cl": "D", "pi": "311", "find": ""}, {"mfr": "Pontiac", "model": "Firebird Trans Am GTA", "y": 1987, "p": 25000, "r": "COMMON", "cl": "D", "pi": "382", "find": ""}, {"mfr": "Porsche", "model": "185 959 Prodrive Rally Raid", "y": 1986, "p": 1500000, "r": "LEGENDARY", "cl": "A", "pi": "623", "find": ""}, {"mfr": "Porsche", "model": "3 917 LH", "y": 1970, "p": 1000000, "r": "LEGENDARY", "cl": "S1", "pi": "776", "find": "Journal: 3,000 pts in \"Car Collection\""}, {"mfr": "Porsche", "model": "3 917 LH Forza Edition", "y": 1970, "p": 1250000, "r": "FORZAEDITION", "cl": "R", "pi": "998", "find": "Wheelspin only"}, {"mfr": "Porsche", "model": "70 Porsche Motorsport 935", "y": 2019, "p": 1600000, "r": "LEGENDARY", "cl": "S2", "pi": "853", "find": ""}, {"mfr": "Porsche", "model": "718 Cayman GT4 RS", "y": 2022, "p": 190000, "r": "EPIC", "cl": "S1", "pi": "737", "find": "Journal: 1,300 pts in \"Road Rivals\""}, {"mfr": "Porsche", "model": "718 Cayman GTS", "y": 2018, "p": 75000, "r": "EPIC", "cl": "A", "pi": "675", "find": ""}, {"mfr": "Porsche", "model": "911 Carrera RS", "y": 1973, "p": 1050000, "r": "LEGENDARY", "cl": "C", "pi": "490", "find": ""}, {"mfr": "Porsche", "model": "911 Carrera S", "y": 2019, "p": 145000, "r": "RARE", "cl": "S1", "pi": "714", "find": ""}, {"mfr": "Porsche", "model": "911 GT1 Strassenversion", "y": 1997, "p": 4000000, "r": "LEGENDARY", "cl": "S1", "pi": "746", "find": ""}, {"mfr": "Porsche", "model": "911 GT2 (1995)", "y": 1995, "p": 1100000, "r": "EPIC", "cl": "A", "pi": "644", "find": "Wheelspin only"}, {"mfr": "Porsche", "model": "911 GT2 RS (2018)", "y": 2018, "p": 550000, "r": "EPIC", "cl": "S2", "pi": "803", "find": ""}, {"mfr": "Porsche", "model": "911 GT3 (2004)", "y": 2004, "p": 135000, "r": "RARE", "cl": "A", "pi": "674", "find": ""}, {"mfr": "Porsche", "model": "911 GT3 (2021)", "y": 2021, "p": 260000, "r": "EPIC", "cl": "S1", "pi": "752", "find": ""}, {"mfr": "Porsche", "model": "911 GT3 RS (2019)", "y": 2019, "p": 250000, "r": "EPIC", "cl": "S1", "pi": "760", "find": "Wheelspin only"}, {"mfr": "Porsche", "model": "911 GT3 RS (2023)", "y": 2023, "p": 424000, "r": "EPIC", "cl": "S1", "pi": "758", "find": ""}, {"mfr": "Porsche", "model": "911 GT3 RS 4.0", "y": 2012, "p": 930000, "r": "EPIC", "cl": "S1", "pi": "726", "find": "Journal: 2,500 pts in \"Speed Zones\""}, {"mfr": "Porsche", "model": "911 Rallye", "y": 2023, "p": 390000, "r": "EPIC", "cl": "A", "pi": "700", "find": "Orange Wristband"}, {"mfr": "Porsche", "model": "911 Turbo 3.3", "y": 1982, "p": 240000, "r": "UNKNOWN", "cl": "B", "pi": "550", "find": "Barn Find (South Ohtani)"}, {"mfr": "Porsche", "model": "911 Turbo S (2023)", "y": 2023, "p": 275000, "r": "RARE", "cl": "S1", "pi": "774", "find": ""}, {"mfr": "Porsche", "model": "911 Turbo S Leichtbau", "y": 1993, "p": 600000, "r": "LEGENDARY", "cl": "A", "pi": "652", "find": "Hard to Find"}, {"mfr": "Porsche", "model": "918 Spyder", "y": 2014, "p": 2300000, "r": "LEGENDARY", "cl": "S2", "pi": "858", "find": "Journal: 3,700 pts in \"Horizon Play\""}, {"mfr": "Porsche", "model": "928 GTS", "y": 1993, "p": 150000, "r": "RARE", "cl": "B", "pi": "563", "find": ""}, {"mfr": "Porsche", "model": "944 Turbo", "y": 1989, "p": 30000, "r": "RARE", "cl": "B", "pi": "539", "find": ""}, {"mfr": "Porsche", "model": "959", "y": 1987, "p": 1875000, "r": "UNKNOWN", "cl": "A", "pi": "661", "find": "Treasure Car (North Shimanoyama)"}, {"mfr": "Porsche", "model": "968 Turbo S", "y": 1993, "p": 520000, "r": "RARE", "cl": "B", "pi": "594", "find": ""}, {"mfr": "Porsche", "model": "Carrera GT", "y": 2003, "p": 1800000, "r": "EPIC", "cl": "S1", "pi": "758", "find": "Car Mastery (Porsche 918 Spyder)"}, {"mfr": "Porsche", "model": "Cayenne Turbo (2018)", "y": 2018, "p": 79000, "r": "EPIC", "cl": "A", "pi": "638", "find": ""}, {"mfr": "Porsche", "model": "Cayman GT3 WTAC", "y": 2005, "p": 180000, "r": "EPIC", "cl": "S2", "pi": "856", "find": ""}, {"mfr": "Porsche", "model": "Macan LPR Rally Raid", "y": 2018, "p": 250000, "r": "EPIC", "cl": "B", "pi": "528", "find": ""}, {"mfr": "Porsche", "model": "Mission R", "y": 2022, "p": 5000000, "r": "LEGENDARY", "cl": "S2", "pi": "865", "find": ""}, {"mfr": "Porsche", "model": "Taycan Turbo S", "y": 2020, "p": 200000, "r": "COMMON", "cl": "S1", "pi": "725", "find": ""}, {"mfr": "RIVIAN", "model": "R1T", "y": 2021, "p": 56000, "r": "EPIC", "cl": "A", "pi": "607", "find": ""}, {"mfr": "RJ", "model": "Anderson 37 Polaris RZR Pro 2 Truck", "y": 2016, "p": 120000, "r": "EPIC", "cl": "A", "pi": "674", "find": "Journal: 975 pts in \"Cross Country Rivals\""}, {"mfr": "RJ", "model": "Anderson 37 Polaris RZR Pro 4 Truck", "y": 2021, "p": 250000, "r": "EPIC", "cl": "A", "pi": "677", "find": "Wheelspin only"}, {"mfr": "Radical", "model": "RXC Turbo", "y": 2015, "p": 147000, "r": "EPIC", "cl": "S2", "pi": "842", "find": ""}, {"mfr": "Ram", "model": "1500 TRX", "y": 2024, "p": 100000, "r": "COMMON", "cl": "B", "pi": "514", "find": "Yellow Wristband"}, {"mfr": "Reliant", "model": "Supervan III", "y": 1972, "p": 39000, "r": "COMMON", "cl": "D", "pi": "100", "find": ""}, {"mfr": "Renault", "model": "5 Turbo", "y": 1980, "p": 143000, "r": "RARE", "cl": "C", "pi": "417", "find": ""}, {"mfr": "Renault", "model": "8 Gordini", "y": 1967, "p": 250000, "r": "COMMON", "cl": "D", "pi": "322", "find": "Hard to Find"}, {"mfr": "Renault", "model": "Clio Williams", "y": 1993, "p": 30000, "r": "COMMON", "cl": "D", "pi": "400", "find": ""}, {"mfr": "Renault", "model": "Megane R.S.", "y": 2018, "p": 32000, "r": "RARE", "cl": "B", "pi": "547", "find": ""}, {"mfr": "Renault", "model": "Megane RS 250", "y": 2010, "p": 14000, "r": "COMMON", "cl": "B", "pi": "538", "find": ""}, {"mfr": "Renault", "model": "M\u00e9gane R26.R", "y": 2008, "p": 58000, "r": "RARE", "cl": "B", "pi": "561", "find": ""}, {"mfr": "Rimac", "model": "Nevera", "y": 2021, "p": 2250000, "r": "LEGENDARY", "cl": "R", "pi": "913", "find": "Wheelspin only"}, {"mfr": "SIERRA", "model": "Cars 23 Yokohama ALPHA", "y": 2020, "p": 65000, "r": "EPIC", "cl": "R", "pi": "926", "find": ""}, {"mfr": "SIERRA", "model": "Cars 700R", "y": 2021, "p": 75000, "r": "RARE", "cl": "D", "pi": "346", "find": ""}, {"mfr": "SIERRA", "model": "Cars RX3", "y": 2021, "p": 50000, "r": "RARE", "cl": "A", "pi": "635", "find": ""}, {"mfr": "SRT", "model": "Viper GTS", "y": 2013, "p": 135000, "r": "RARE", "cl": "S1", "pi": "707", "find": "Wheelspin, Loyalty Reward"}, {"mfr": "Saleen", "model": "S7 LM", "y": 2017, "p": 1000000, "r": "EPIC", "cl": "S2", "pi": "835", "find": "Hard to Find"}, {"mfr": "Schuppan", "model": "962CR", "y": 1993, "p": 1950000, "r": "EPIC", "cl": "S1", "pi": "764", "find": "Hard to Find"}, {"mfr": "Shelby", "model": "Cobra 427 S/C", "y": 1965, "p": 3000000, "r": "LEGENDARY", "cl": "B", "pi": "582", "find": "Journal: 2,700 pts in \"Car Collection\""}, {"mfr": "Shelby", "model": "Cobra Daytona Coupe", "y": 1965, "p": 20000000, "r": "LEGENDARY", "cl": "B", "pi": "515", "find": ""}, {"mfr": "Subaru", "model": "BRAT GL", "y": 1980, "p": 20000, "r": "COMMON", "cl": "D", "pi": "159", "find": ""}, {"mfr": "Subaru", "model": "BRZ (2013)", "y": 2013, "p": 25000, "r": "COMMON", "cl": "C", "pi": "463", "find": ""}, {"mfr": "Subaru", "model": "BRZ (2022)", "y": 2022, "p": 28000, "r": "EPIC", "cl": "B", "pi": "551", "find": ""}, {"mfr": "Subaru", "model": "BRZ (2022) Forza Edition", "y": 2022, "p": 500000, "r": "FORZAEDITION", "cl": "A", "pi": "700", "find": "Aftermarket Car (Sotoyama Ski Resort)"}, {"mfr": "Subaru", "model": "IMPREZA WRX STI (2004)", "y": 2004, "p": 30000, "r": "COMMON", "cl": "B", "pi": "552", "find": ""}, {"mfr": "Subaru", "model": "IMPREZA WRX STI (2005)", "y": 2005, "p": 35000, "r": "COMMON", "cl": "B", "pi": "570", "find": ""}, {"mfr": "Subaru", "model": "IMPREZA WRX STI (2008)", "y": 2008, "p": 27000, "r": "RARE", "cl": "B", "pi": "539", "find": ""}, {"mfr": "Subaru", "model": "Impreza 22B-STi Version", "y": 1998, "p": 86000, "r": "LEGENDARY", "cl": "B", "pi": "600", "find": ""}, {"mfr": "Subaru", "model": "LEGACY B4 2.0 GT", "y": 2005, "p": 10000, "r": "COMMON", "cl": "B", "pi": "549", "find": ""}, {"mfr": "Subaru", "model": "LEGACY RS", "y": 1990, "p": 15000, "r": "COMMON", "cl": "C", "pi": "406", "find": ""}, {"mfr": "Subaru", "model": "STI S209", "y": 2019, "p": 250000, "r": "COMMON", "cl": "B", "pi": "575", "find": "Hard to Find"}, {"mfr": "Subaru", "model": "SVX", "y": 1996, "p": 13000, "r": "COMMON", "cl": "C", "pi": "466", "find": ""}, {"mfr": "Subaru", "model": "Vivio RX-R", "y": 1994, "p": 10000, "r": "EPIC", "cl": "D", "pi": "281", "find": ""}, {"mfr": "Subaru", "model": "Vivio RX-R Forza Edition", "y": 1994, "p": 750000, "r": "FORZAEDITION", "cl": "S2", "pi": "900", "find": "Journal: 3,250 pts in \"Horizon Life Events\""}, {"mfr": "Subaru", "model": "WRX", "y": 2022, "p": 25000, "r": "EPIC", "cl": "B", "pi": "538", "find": ""}, {"mfr": "Subaru", "model": "WRX STI (2011)", "y": 2011, "p": 27000, "r": "RARE", "cl": "B", "pi": "547", "find": ""}, {"mfr": "Subaru", "model": "WRX STI (2015)", "y": 2015, "p": 27000, "r": "COMMON", "cl": "B", "pi": "555", "find": ""}, {"mfr": "Subaru", "model": "WRX STI ARX Supercar", "y": 2018, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "758", "find": "Purple Wristband"}, {"mfr": "TVR", "model": "Cerbera Speed 12", "y": 1998, "p": 750000, "r": "EPIC", "cl": "S1", "pi": "770", "find": "Hard to Find"}, {"mfr": "TVR", "model": "Griffith", "y": 2018, "p": 250000, "r": "RARE", "cl": "S1", "pi": "729", "find": ""}, {"mfr": "TVR", "model": "Sagaris", "y": 2005, "p": 115000, "r": "RARE", "cl": "A", "pi": "672", "find": ""}, {"mfr": "Toyota", "model": "1 T100 Baja Truck", "y": 1993, "p": 400000, "r": "LEGENDARY", "cl": "B", "pi": "584", "find": ""}, {"mfr": "Toyota", "model": "2000GT", "y": 1969, "p": 1000000, "r": "UNKNOWN", "cl": "D", "pi": "377", "find": "Barn Find (North Ito)"}, {"mfr": "Toyota", "model": "4Runner TRD Pro", "y": 2019, "p": 42000, "r": "RARE", "cl": "C", "pi": "421", "find": ""}, {"mfr": "Toyota", "model": "86", "y": 2013, "p": 15800, "r": "RARE", "cl": "C", "pi": "460", "find": ""}, {"mfr": "Toyota", "model": "86 'Stories'", "y": 2013, "p": 250000, "r": "LEGENDARY", "cl": "A", "pi": "685", "find": "Journal: 1,800 pts in \"Yuji's Auto\""}, {"mfr": "Toyota", "model": "Altezza RS200 Z EDITION", "y": 1999, "p": 250000, "r": "RARE", "cl": "C", "pi": "461", "find": "Hard to Find"}, {"mfr": "Toyota", "model": "Camry TRD", "y": 2023, "p": 31000, "r": "EPIC", "cl": "B", "pi": "525", "find": ""}, {"mfr": "Toyota", "model": "Celica GT-Four RC ST185", "y": 1992, "p": 30000, "r": "RARE", "cl": "C", "pi": "438", "find": ""}, {"mfr": "Toyota", "model": "Celica GT-Four ST205", "y": 1994, "p": 27000, "r": "COMMON", "cl": "C", "pi": "479", "find": "Complete the Prologue"}, {"mfr": "Toyota", "model": "Celica Sport Specialty II", "y": 2003, "p": 12000, "r": "RARE", "cl": "C", "pi": "433", "find": ""}, {"mfr": "Toyota", "model": "Chaser 2.5 Tourer V", "y": 1997, "p": 15500, "r": "RARE", "cl": "B", "pi": "504", "find": "Journal: 2,000 pts in \"Photography\""}, {"mfr": "Toyota", "model": "Chaser GT Twin Turbo", "y": 1991, "p": 20000, "r": "RARE", "cl": "C", "pi": "484", "find": ""}, {"mfr": "Toyota", "model": "Corolla SR5", "y": 1974, "p": 250000, "r": "EPIC", "cl": "D", "pi": "197", "find": "Hard to Find"}, {"mfr": "Toyota", "model": "Crown Super Deluxe Taxi", "y": 2005, "p": 10000, "r": "COMMON", "cl": "D", "pi": "181", "find": ""}, {"mfr": "Toyota", "model": "FJ40", "y": 1979, "p": 103000, "r": "COMMON", "cl": "D", "pi": "157", "find": ""}, {"mfr": "Toyota", "model": "GR Corolla", "y": 2023, "p": 0, "r": "RARE", "cl": "B", "pi": "596", "find": "Requires Car Pass"}, {"mfr": "Toyota", "model": "GR Supra", "y": 2020, "p": 45000, "r": "RARE", "cl": "A", "pi": "616", "find": "Journal: 1,000 pts in \"Discovery\""}, {"mfr": "Toyota", "model": "GR Yaris", "y": 2021, "p": 54000, "r": "EPIC", "cl": "B", "pi": "558", "find": ""}, {"mfr": "Toyota", "model": "GR86", "y": 2022, "p": 28000, "r": "COMMON", "cl": "B", "pi": "556", "find": "Yellow Wristband"}, {"mfr": "Toyota", "model": "J&J Motorsport Supra WTAC", "y": 1995, "p": 420000, "r": "EPIC", "cl": "S2", "pi": "828", "find": "Requires Time AttackCar Pack"}, {"mfr": "Toyota", "model": "JPN Taxi", "y": 2017, "p": 25000, "r": "COMMON", "cl": "D", "pi": "248", "find": ""}, {"mfr": "Toyota", "model": "Land Cruiser", "y": 2025, "p": 70000, "r": "RARE", "cl": "C", "pi": "456", "find": ""}, {"mfr": "Toyota", "model": "Land Cruiser Arctic Trucks AT37", "y": 2016, "p": 250000, "r": "RARE", "cl": "D", "pi": "332", "find": "Hard to Find"}, {"mfr": "Toyota", "model": "MR2 GT", "y": 1995, "p": 28000, "r": "RARE", "cl": "B", "pi": "522", "find": ""}, {"mfr": "Toyota", "model": "MR2 SC", "y": 1989, "p": 250000, "r": "RARE", "cl": "D", "pi": "397", "find": "Hard to Find"}, {"mfr": "Toyota", "model": "Sera", "y": 1991, "p": 11000, "r": "RARE", "cl": "D", "pi": "344", "find": ""}, {"mfr": "Toyota", "model": "Soarer 2.5 GT-T", "y": 1997, "p": 18000, "r": "RARE", "cl": "C", "pi": "491", "find": "Journal: 250 pts in \"Garages\""}, {"mfr": "Toyota", "model": "Sports 800", "y": 1965, "p": 250000, "r": "RARE", "cl": "D", "pi": "141", "find": "Wheelspin, Earn 4,000 points in the \"Regional Mascots\" categ"}, {"mfr": "Toyota", "model": "Sports 800 Fanta Edition", "y": 1965, "p": 35000, "r": "RARE", "cl": "D", "pi": "141", "find": "Promo: Fanta"}, {"mfr": "Toyota", "model": "Sprinter Trueno GT Apex", "y": 1985, "p": 30000, "r": "EPIC", "cl": "D", "pi": "376", "find": ""}, {"mfr": "Toyota", "model": "Sprinter Trueno GT-APEX Forza Edition", "y": 1985, "p": 500000, "r": "FORZAEDITION", "cl": "B", "pi": "600", "find": "Journal: 5,000 pts in \"Master Explorer\""}, {"mfr": "Toyota", "model": "Starlet Glanza V", "y": 1996, "p": 250000, "r": "COMMON", "cl": "C", "pi": "435", "find": "Hard to Find"}, {"mfr": "Toyota", "model": "Supra 2.0 GT", "y": 1992, "p": 28000, "r": "RARE", "cl": "C", "pi": "454", "find": ""}, {"mfr": "Toyota", "model": "Supra RZ", "y": 1998, "p": 60000, "r": "RARE", "cl": "B", "pi": "526", "find": "Journal: 250 pts in \"Touge & Street Racing\""}, {"mfr": "Toyota", "model": "Tacoma TRD Pro", "y": 2019, "p": 34000, "r": "RARE", "cl": "C", "pi": "409", "find": ""}, {"mfr": "Toyota", "model": "Tacoma TRD Pro Forza Edition", "y": 2019, "p": 500000, "r": "FORZAEDITION", "cl": "R", "pi": "998", "find": "Gifted (VIP Membership)"}, {"mfr": "Ultima", "model": "Evolution Coupe 1020", "y": 2015, "p": 150000, "r": "EPIC", "cl": "R", "pi": "925", "find": ""}, {"mfr": "Volkswagen", "model": "34 Volkswagen Andretti Rally Cross Beetle", "y": 2017, "p": 150000, "r": "EPIC", "cl": "S1", "pi": "764", "find": ""}, {"mfr": "Volkswagen", "model": "Beetle", "y": 1963, "p": 17000, "r": "LEGENDARY", "cl": "D", "pi": "100", "find": ""}, {"mfr": "Volkswagen", "model": "Class 5/1600 Baja Bug", "y": 1969, "p": 35000, "r": "RARE", "cl": "D", "pi": "260", "find": ""}, {"mfr": "Volkswagen", "model": "Corrado VR6", "y": 1995, "p": 30000, "r": "COMMON", "cl": "C", "pi": "426", "find": ""}, {"mfr": "Volkswagen", "model": "Golf GTI", "y": 1983, "p": 18000, "r": "COMMON", "cl": "D", "pi": "314", "find": ""}, {"mfr": "Volkswagen", "model": "Golf Gti 16v Mk2", "y": 1992, "p": 22000, "r": "COMMON", "cl": "D", "pi": "308", "find": ""}, {"mfr": "Volkswagen", "model": "Golf R (2010)", "y": 2010, "p": 20000, "r": "RARE", "cl": "B", "pi": "526", "find": ""}, {"mfr": "Volkswagen", "model": "Golf R (2014)", "y": 2014, "p": 27000, "r": "COMMON", "cl": "B", "pi": "536", "find": ""}, {"mfr": "Volkswagen", "model": "Golf R (2021)", "y": 2021, "p": 29000, "r": "COMMON", "cl": "B", "pi": "546", "find": ""}, {"mfr": "Volkswagen", "model": "Golf R (2022)", "y": 2022, "p": 35000, "r": "RARE", "cl": "B", "pi": "548", "find": ""}, {"mfr": "Volkswagen", "model": "Pickup LX", "y": 1982, "p": 16000, "r": "EPIC", "cl": "D", "pi": "100", "find": ""}, {"mfr": "Volkswagen", "model": "Rallye Golf", "y": 1989, "p": 250000, "r": "RARE", "cl": "C", "pi": "440", "find": "Hard to Find"}, {"mfr": "Volkswagen", "model": "Scirocco R", "y": 2011, "p": 15000, "r": "RARE", "cl": "B", "pi": "548", "find": ""}, {"mfr": "Volkswagen", "model": "Type 2 De Luxe", "y": 1963, "p": 178000, "r": "RARE", "cl": "D", "pi": "100", "find": "Journal: 750 pts in \"Houses\""}, {"mfr": "Volvo", "model": "242 Turbo Evolution", "y": 1983, "p": 30000, "r": "COMMON", "cl": "C", "pi": "435", "find": ""}, {"mfr": "Wuling", "model": "Hongguang Mini EV", "y": 2022, "p": 5000, "r": "RARE", "cl": "D", "pi": "100", "find": ""}, {"mfr": "Wuling", "model": "Sunshine S", "y": 2013, "p": 2000, "r": "RARE", "cl": "D", "pi": "107", "find": ""}, {"mfr": "Wuling", "model": "Sunshine S Forza Edition", "y": 2020, "p": 500000, "r": "FORZAEDITION", "cl": "S1", "pi": "800", "find": "Wheelspin only"}, {"mfr": "Zenvo", "model": "TSR-S", "y": 2019, "p": 1200000, "r": "LEGENDARY", "cl": "R", "pi": "906", "find": ""}];
+
+const RARITY_LABELS = { COMMON: "Common", RARE: "Rare", EPIC: "Epic", LEGENDARY: "Legendary", FORZAEDITION: "Forza Edition", UNKNOWN: "Unknown" };
+
+// Official FH6 performance class colors, pulled directly from the game's own wiki data.
+// Each entry also specifies which text color (dark or white) actually reads clearly on it --
+// the raw game colors don't all work with the same single text color at small badge sizes.
+const CLASS_COLORS = {
+  D:  { bg: "#3dbaea", text: "#0b0d10" },
+  C:  { bg: "#f6bf31", text: "#0b0d10" },
+  B:  { bg: "#ff8c14", text: "#0b0d10" },
+  A:  { bg: "#fc355a", text: "#0b0d10" },
+  S1: { bg: "#bd5ee4", text: "#0b0d10" },
+  S2: { bg: "#1567d6", text: "#ffffff" },
+  R:  { bg: "#d21995", text: "#ffffff" },
+};
+const CLASS_FALLBACK = { bg: "var(--class-badge-bg)", text: "var(--class-badge-text)" };
+
+function getClassStyle(cl){
+  return CLASS_COLORS[cl] || CLASS_FALLBACK;
+}
+const RARITY_ORDER = ["COMMON","RARE","EPIC","LEGENDARY","FORZAEDITION","UNKNOWN"];
+
+const STORAGE_KEY = "fh6_garage_qty_v2";
+const CUSTOM_KEY = "fh6_garage_custom_v3";
+const NOTES_KEY = "fh6_garage_notes_v1";
+const OVERRIDES_KEY = "fh6_garage_overrides_v1";
+
+function loadOwned(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e){ return {}; } }
+function saveOwned(obj){ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }
+function loadCustom(){ try{ return JSON.parse(localStorage.getItem(CUSTOM_KEY)) || []; } catch(e){ return []; } }
+function saveCustom(arr){ localStorage.setItem(CUSTOM_KEY, JSON.stringify(arr)); }
+function loadNotes(){ try{ return JSON.parse(localStorage.getItem(NOTES_KEY)) || {}; } catch(e){ return {}; } }
+function saveNotes(obj){ localStorage.setItem(NOTES_KEY, JSON.stringify(obj)); }
+function loadOverrides(){ try{ return JSON.parse(localStorage.getItem(OVERRIDES_KEY)) || {}; } catch(e){ return {}; } }
+function saveOverrides(obj){ localStorage.setItem(OVERRIDES_KEY, JSON.stringify(obj)); }
+
+let owned = loadOwned(); // { id: quantityOwned }
+let notesData = loadNotes(); // { id: { rating: 0-5, note: "text" } }
+let overrides = loadOverrides(); // { id: { mfr, model, y, p, r, cl, find } } -- partial, only edited fields
+let carLookup = {}; // rebuilt every render(): { id: fullCarObject } -- used by the edit modal
+
+let activeTab = "all";       // all | have | missing
+let activeRarityFilter = "rarity-all";
+let searchTerm = "";
+let sortMode = "default";
+
+function getEntry(id){ return notesData[id] || { rating: 0, note: "" }; }
+function setRating(id, rating){
+  const entry = getEntry(id);
+  entry.rating = rating;
+  notesData[id] = entry;
+  saveNotes(notesData);
+}
+function setNote(id, note){
+  const entry = getEntry(id);
+  entry.note = note;
+  notesData[id] = entry;
+  saveNotes(notesData);
+}
+
+function carId(mfr, model, year){ return (mfr + "_" + year + "_" + model).replace(/\s+/g, "_").toLowerCase(); }
+
+function fmtCR(n){
+  if(!n || n === 0) return "Unbuyable";
+  if(n >= 1000000) return (n/1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + "M CR";
+  if(n >= 1000) return Math.round(n/1000) + "K CR";
+  return n + " CR";
+}
+
+function fmtTotalCR(n){
+  if(!n || n === 0) return "0 CR";
+  if(n >= 1000000) return (n/1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + "M CR";
+  if(n >= 1000) return Math.round(n/1000) + "K CR";
+  return n + " CR";
+}
+
+function getFullRoster(){
+  const full = {};
+  const ov = loadOverrides();
+
+  CARS.forEach(c => {
+    const originalId = carId(c.mfr, c.model, c.y);
+    const override = ov[originalId];
+    // merge: override fields win over the original built-in fields, but only for fields present in the override
+    const merged = override ? { ...c, ...override } : { ...c };
+    const finalId = carId(merged.mfr, merged.model, merged.y);
+    if(!full[merged.mfr]) full[merged.mfr] = [];
+    full[merged.mfr].push({ ...merged, id: finalId, originalId, custom:false, edited: !!override });
+  });
+
+  loadCustom().forEach(item => {
+    if(!full[item.mfr]) full[item.mfr] = [];
+    full[item.mfr].push({
+      mfr:item.mfr, model:item.model, y:item.y, p:item.p, r:item.r, cl:item.cl||"?", pi:item.pi||"?",
+      find:item.find||"", id: carId(item.mfr, item.model, item.y), custom:true, edited:false
+    });
+  });
+  return full;
+}
+
+function render(){
+  const full = getFullRoster();
+  const root = document.getElementById("listRoot");
+  root.innerHTML = "";
+
+  // rebuilt fresh every render -- lets the edit button look up a car's full data by id
+  carLookup = {};
+  Object.keys(full).forEach(mfr => {
+    full[mfr].forEach(car => { carLookup[car.id] = car; });
+  });
+
+  let totalModels = 0, ownedModels = 0, totalUnits = 0, totalValueOwned = 0;
+  let anyVisible = false;
+  const term = searchTerm.toLowerCase();
+
+  let mfrNames = Object.keys(full).sort();
+
+  mfrNames.forEach(mfr => {
+    let cars = full[mfr];
+    totalModels += cars.length;
+
+    cars.forEach(car => {
+      const qty = owned[car.id] || 0;
+      if(qty > 0){ ownedModels++; totalUnits += qty; totalValueOwned += (car.p||0) * qty; }
+    });
+
+    let visibleCars = cars.filter(car => {
+      const qty = owned[car.id] || 0;
+
+      if(activeTab === "have" && qty === 0) return false;
+      if(activeTab === "missing" && qty > 0) return false;
+
+      if(["COMMON","RARE","EPIC","LEGENDARY","FORZAEDITION"].includes(activeRarityFilter) && car.r !== activeRarityFilter) return false;
+      if(activeRarityFilter === "autoshow-only" && car.find) return false;
+      if(activeRarityFilter === "special-only" && !car.find) return false;
+      if(activeRarityFilter === "has-notes"){
+        const entry = getEntry(car.id);
+        if(!entry.note && !entry.rating) return false;
+      }
+
+      if(term){
+        const haystack = (mfr + " " + car.y + " " + car.model).toLowerCase();
+        if(!haystack.includes(term)) return false;
+      }
+      return true;
+    });
+
+    if(sortMode === "price-desc") visibleCars.sort((a,b) => (b.p||0) - (a.p||0));
+    if(sortMode === "price-asc") visibleCars.sort((a,b) => (a.p||0) - (b.p||0));
+    if(sortMode === "year-desc") visibleCars.sort((a,b) => {
+      // cars with no known year (y=0) always sort to the end, regardless of direction
+      if(!a.y && !b.y) return 0;
+      if(!a.y) return 1;
+      if(!b.y) return -1;
+      return b.y - a.y;
+    });
+    if(sortMode === "year-asc") visibleCars.sort((a,b) => {
+      if(!a.y && !b.y) return 0;
+      if(!a.y) return 1;
+      if(!b.y) return -1;
+      return a.y - b.y;
+    });
+    if(sortMode === "rarity") visibleCars.sort((a,b) => RARITY_ORDER.indexOf(b.r) - RARITY_ORDER.indexOf(a.r));
+    if(sortMode === "rating-desc") visibleCars.sort((a,b) => getEntry(b.id).rating - getEntry(a.id).rating);
+    if(sortMode === "rating-asc") visibleCars.sort((a,b) => getEntry(a.id).rating - getEntry(b.id).rating);
+
+    if(visibleCars.length === 0) return;
+    anyVisible = true;
+
+    const ownedInMfr = cars.filter(c => (owned[c.id]||0) > 0).length;
+    const complete = ownedInMfr === cars.length;
+
+    const group = document.createElement("div");
+    group.className = "mfr-group";
+    group.innerHTML = `<div class="mfr-header">
+      <span class="mfr-name">${mfr}</span>
+      <span class="mfr-count ${complete ? 'complete' : ''}">${ownedInMfr}/${cars.length}</span>
+    </div>`;
+
+    const list = document.createElement("div");
+    list.className = "car-list";
+
+    visibleCars.forEach(car => {
+      const qty = owned[car.id] || 0;
+      const rarityKey = (car.r || "UNKNOWN").toLowerCase();
+      const yearLabel = car.y && car.y > 0 ? car.y : "—";
+      const entry = getEntry(car.id);
+      const row = document.createElement("div");
+      row.className = "car-row" + (qty > 0 ? " owned" : "");
+
+      const starsHtml = [1,2,3,4,5].map(n => `
+        <button class="star-btn ${n <= entry.rating ? 'filled' : ''}" data-id="${car.id}" data-star="${n}" aria-label="Rate ${n} star">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>
+        </button>`).join("");
+
+      const classStyle = getClassStyle(car.cl);
+      const editedDot = car.edited ? `<span class="edited-dot" title="Edited"></span>` : ``;
+
+      row.innerHTML = `
+        <div class="car-info">
+          <div class="car-top-line">
+            <span class="car-year">${yearLabel}</span>
+            <span class="car-name">${car.model}</span>${editedDot}
+          </div>
+          <div class="car-meta-line">
+            <span class="rarity-tag" style="background:${rarityKey==='forzaedition' ? 'linear-gradient(135deg, var(--r-fe-1), var(--r-fe-2), var(--r-fe-3))' : `var(--r-${rarityKey})`}; color:${rarityKey==='legendary' ? '#1a1304' : '#0b0d10'}">${RARITY_LABELS[car.r] || car.r}</span>
+            <span class="car-price">${fmtCR(car.p)}</span>
+            <span class="car-class" style="background:${classStyle.bg}; color:${classStyle.text}">${car.cl}</span>
+            ${car.find ? `<span class="find-tag">${car.find}</span>` : ``}
+          </div>
+          <div class="car-extra-line">
+            <div class="stars">${starsHtml}</div>
+            <input class="note-input" type="text" placeholder="Add a note..." value="${entry.note.replace(/"/g, '&quot;')}" data-id="${car.id}">
+          </div>
+        </div>
+        <div class="row-controls">
+          <button class="edit-car-btn" data-id="${car.id}" aria-label="Edit car">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          </button>
+          <div class="qty-stepper">
+            <button class="qty-btn minus" data-id="${car.id}" data-dir="-1">−</button>
+            <span class="qty-num ${qty===0?'zero':''}">${qty}</span>
+            <button class="qty-btn plus" data-id="${car.id}" data-dir="1">+</button>
+          </div>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+
+    group.appendChild(list);
+    root.appendChild(group);
+  });
+
+  document.getElementById("emptyState").style.display = anyVisible ? "none" : "block";
+
+  const pct = totalModels ? Math.round((ownedModels / totalModels) * 100) : 0;
+  const circumference = 226;
+  document.getElementById("gaugeFill").style.strokeDashoffset = circumference - (circumference * pct / 100);
+  document.getElementById("gaugeNum").innerHTML = pct + "<sup>%</sup>";
+  document.getElementById("ownedCount").innerHTML =
+    `${ownedModels} of ${totalModels} models (${totalUnits} cars) &middot; <span class="sub-cr">${fmtTotalCR(totalValueOwned)}</span>`;
+}
+
+document.getElementById("listRoot").addEventListener("click", (e) => {
+  const qtyBtn = e.target.closest(".qty-btn");
+  if(qtyBtn){
+    const id = qtyBtn.dataset.id;
+    const dir = parseInt(qtyBtn.dataset.dir);
+    const current = owned[id] || 0;
+    const next = Math.max(0, current + dir);
+    if(next === 0) delete owned[id];
+    else owned[id] = next;
+    saveOwned(owned);
+    render();
+    return;
+  }
+
+  const starBtn = e.target.closest(".star-btn");
+  if(starBtn){
+    const id = starBtn.dataset.id;
+    const star = parseInt(starBtn.dataset.star);
+    const current = getEntry(id).rating;
+    // clicking the already-selected top star clears the rating back to 0
+    const next = (current === star) ? 0 : star;
+    setRating(id, next);
+    render();
+    return;
+  }
+
+  const editBtn = e.target.closest(".edit-car-btn");
+  if(editBtn){
+    openEditModal(editBtn.dataset.id);
+    return;
+  }
+});
+
+// Notes use a debounce-on-blur approach so re-render doesn't happen on every keystroke
+// (re-rendering on every keystroke would steal focus from the input).
+document.getElementById("listRoot").addEventListener("change", (e) => {
+  const input = e.target.closest(".note-input");
+  if(!input) return;
+  setNote(input.dataset.id, input.value);
+});
+document.getElementById("listRoot").addEventListener("blur", (e) => {
+  const input = e.target.closest(".note-input");
+  if(!input) return;
+  setNote(input.dataset.id, input.value);
+}, true);
+
+// Warn before closing/refreshing only in the one case where data could genuinely be lost:
+// a note that's still being typed (focused) and hasn't blurred/saved yet.
+window.addEventListener("beforeunload", (e) => {
+  const active = document.activeElement;
+  if(!active || !active.classList || !active.classList.contains("note-input")) return;
+  const saved = getEntry(active.dataset.id).note;
+  if(active.value === saved) return; // nothing actually unsaved
+  e.preventDefault();
+  e.returnValue = "";
+});
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    activeTab = tab.dataset.tab;
+    render();
+  });
+});
+
+document.getElementById("searchInput").addEventListener("input", (e) => {
+  searchTerm = e.target.value;
+  document.getElementById("clearSearch").style.display = searchTerm ? "block" : "none";
+  render();
+});
+document.getElementById("clearSearch").addEventListener("click", () => {
+  searchTerm = "";
+  document.getElementById("searchInput").value = "";
+  document.getElementById("clearSearch").style.display = "none";
+  render();
+});
+document.querySelectorAll(".filter-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    activeRarityFilter = chip.dataset.filter;
+    render();
+  });
+});
+document.getElementById("sortSelect").addEventListener("change", (e) => {
+  sortMode = e.target.value;
+  render();
+});
+
+document.getElementById("addToggle").addEventListener("click", () => {
+  const form = document.getElementById("addForm");
+  const isHidden = form.style.display === "none";
+  form.style.display = isHidden ? "block" : "none";
+  document.getElementById("addToggle").textContent = isHidden ? "− Hide add-car form" : "+ Add a car not on the list";
+});
+
+document.getElementById("addCarBtn").addEventListener("click", addCustomCar);
+
+function addCustomCar(){
+  const mfr = document.getElementById("newMfr").value.trim();
+  const model = document.getElementById("newModel").value.trim();
+  const year = parseInt(document.getElementById("newYear").value) || 0;
+  const rarity = document.getElementById("newRarity").value;
+  const price = parseInt(document.getElementById("newPrice").value) || 0;
+  const find = document.getElementById("newFind").value.trim();
+
+  if(!mfr || !model){
+    alert("Please enter at least a manufacturer and model name.");
+    return;
+  }
+
+  const custom = loadCustom();
+  custom.push({ mfr, model, y: year, p: price, r: rarity, cl: "?", pi: "?", find });
+  saveCustom(custom);
+
+  document.getElementById("newMfr").value = "";
+  document.getElementById("newModel").value = "";
+  document.getElementById("newYear").value = "";
+  document.getElementById("newPrice").value = "";
+  document.getElementById("newFind").value = "";
+
+  render();
+}
+
+// ---- Edit car ----
+// Migrates owned-count and rating/note records from an old car ID to a new one.
+// Needed because a car's ID is derived from manufacturer+model+year -- editing any
+// of those changes the ID, and without this the edit would silently orphan the
+// car's existing quantity and notes under the old, now-unused ID.
+function migrateCarId(oldId, newId){
+  if(oldId === newId) return;
+
+  if(owned.hasOwnProperty(oldId)){
+    owned[newId] = owned[oldId];
+    delete owned[oldId];
+    saveOwned(owned);
+  }
+  if(notesData.hasOwnProperty(oldId)){
+    notesData[newId] = notesData[oldId];
+    delete notesData[oldId];
+    saveNotes(notesData);
+  }
+}
+
+function openEditModal(id){
+  const car = carLookup[id];
+  if(!car) return;
+
+  const overlay = document.getElementById("editOverlay");
+  const rarityOptions = ["COMMON","RARE","EPIC","LEGENDARY","FORZAEDITION","UNKNOWN"]
+    .map(r => `<option value="${r}" ${car.r === r ? 'selected' : ''}>${RARITY_LABELS[r]}</option>`).join("");
+  const classOptions = ["D","C","B","A","S1","S2","R","?"]
+    .map(c => `<option value="${c}" ${car.cl === c ? 'selected' : ''}>${c}</option>`).join("");
+
+  overlay.innerHTML = `
+    <div class="edit-modal">
+      <h3>Edit car</h3>
+      <div class="edit-row-2col">
+        <div class="edit-field">
+          <label>Manufacturer</label>
+          <input id="editMfr" type="text" value="${car.mfr.replace(/"/g,'&quot;')}">
+        </div>
+        <div class="edit-field">
+          <label>Year</label>
+          <input id="editYear" type="number" value="${car.y || ''}">
+        </div>
+      </div>
+      <div class="edit-field">
+        <label>Model</label>
+        <input id="editModel" type="text" value="${car.model.replace(/"/g,'&quot;')}">
+      </div>
+      <div class="edit-row-2col">
+        <div class="edit-field">
+          <label>Rarity</label>
+          <select id="editRarity">${rarityOptions}</select>
+        </div>
+        <div class="edit-field">
+          <label>Class</label>
+          <select id="editClass">${classOptions}</select>
+        </div>
+      </div>
+      <div class="edit-field">
+        <label>Price (CR, digits only, 0 if unbuyable)</label>
+        <input id="editPrice" type="number" value="${car.p || 0}">
+      </div>
+      <div class="edit-field">
+        <label>How to find (leave blank if Autoshow)</label>
+        <input id="editFind" type="text" value="${(car.find||'').replace(/"/g,'&quot;')}">
+      </div>
+      <div class="edit-modal-actions">
+        <button class="edit-cancel-btn" id="editCancelBtn">Cancel</button>
+        <button class="edit-save-btn" id="editSaveBtn">Save</button>
+      </div>
+      ${car.custom ?
+        `<a class="edit-reset-link" id="editDeleteBtn" style="color:var(--red);">Delete this car</a>` :
+        (car.edited ? `<a class="edit-reset-link" id="editResetBtn">Reset to original values</a>` : ``)
+      }
+    </div>
+  `;
+  overlay.style.display = "flex";
+  overlay.dataset.editingId = id;
+
+  document.getElementById("editCancelBtn").addEventListener("click", closeEditModal);
+  document.getElementById("editSaveBtn").addEventListener("click", () => saveCarEdit(id));
+  const deleteBtn = document.getElementById("editDeleteBtn");
+  if(deleteBtn) deleteBtn.addEventListener("click", () => deleteCustomCar(id));
+  const resetBtn = document.getElementById("editResetBtn");
+  if(resetBtn) resetBtn.addEventListener("click", () => resetCarOverride(id));
+}
+
+function closeEditModal(){
+  const overlay = document.getElementById("editOverlay");
+  overlay.style.display = "none";
+  overlay.innerHTML = "";
+  delete overlay.dataset.editingId;
+}
+
+// clicking the dark area outside the modal card also closes it
+document.getElementById("editOverlay").addEventListener("click", (e) => {
+  if(e.target.id === "editOverlay") closeEditModal();
+});
+
+function saveCarEdit(id){
+  const car = carLookup[id];
+  if(!car) return;
+
+  const mfr = document.getElementById("editMfr").value.trim();
+  const model = document.getElementById("editModel").value.trim();
+  const year = parseInt(document.getElementById("editYear").value) || 0;
+  const rarity = document.getElementById("editRarity").value;
+  const cl = document.getElementById("editClass").value;
+  const priceRaw = document.getElementById("editPrice").value.trim();
+  const find = document.getElementById("editFind").value.trim();
+
+  if(!mfr || !model){
+    alert("Manufacturer and model can't be empty.");
+    return;
+  }
+  if(priceRaw && !/^\d+$/.test(priceRaw)){
+    alert("Price should be digits only, no commas (e.g. 45000, not 45,000).");
+    return;
+  }
+  const price = parseInt(priceRaw) || 0;
+
+  const newFields = { mfr, model, y: year, p: price, r: rarity, cl, find };
+  const newId = carId(mfr, model, year);
+
+  if(car.custom){
+    // custom cars: find and replace the matching entry directly in the custom array
+    const custom = loadCustom();
+    const idx = custom.findIndex(item => carId(item.mfr, item.model, item.y) === id);
+    if(idx !== -1){
+      custom[idx] = newFields;
+      saveCustom(custom);
+      migrateCarId(id, newId);
+    }
+  } else {
+    // built-in cars: store only the edited fields as an override, keyed by the car's
+    // ORIGINAL id (the id it would have with zero edits), so future edits to an
+    // already-edited car can still find their record.
+    const originalId = car.originalId;
+    overrides[originalId] = newFields;
+    saveOverrides(overrides);
+    migrateCarId(id, newId);
+  }
+
+  closeEditModal();
+  render();
+}
+
+function deleteCustomCar(id){
+  if(!confirm("Delete this car from your garage? This can't be undone.")) return;
+  const custom = loadCustom();
+  const filtered = custom.filter(item => carId(item.mfr, item.model, item.y) !== id);
+  saveCustom(filtered);
+
+  // also clean up any owned count / notes tied to this id, since the car no longer exists
+  delete owned[id];
+  saveOwned(owned);
+  delete notesData[id];
+  saveNotes(notesData);
+
+  closeEditModal();
+  render();
+}
+
+function resetCarOverride(id){
+  const car = carLookup[id];
+  if(!car || !car.originalId) return;
+  if(!confirm("Reset this car back to its original values? Your owned count, rating, and notes are kept.")) return;
+
+  const originalId = car.originalId;
+  delete overrides[originalId];
+  saveOverrides(overrides);
+
+  // current (edited) id might differ from originalId -- migrate any records back
+  migrateCarId(id, originalId);
+
+  closeEditModal();
+  render();
+}
+
+// ---- Bulk add ----
+document.querySelectorAll(".mode-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".mode-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    const mode = tab.dataset.mode;
+    document.getElementById("singleMode").style.display = mode === "single" ? "block" : "none";
+    document.getElementById("bulkMode").style.display = mode === "bulk" ? "block" : "none";
+  });
+});
+
+const RARITY_ALIASES = {
+  "common": "COMMON", "rare": "RARE", "epic": "EPIC", "legendary": "LEGENDARY",
+  "forza edition": "FORZAEDITION", "forzaedition": "FORZAEDITION", "fe": "FORZAEDITION",
+  "unknown": "UNKNOWN", "": "COMMON"
+};
+
+function parseBulkLine(line, lineNum){
+  // split into at most 6 fields -- anything past the 5th comma stays in the "find" field,
+  // since "how to find" text legitimately contains commas (e.g. "Wheelspin, Loyalty Reward")
+  const parts = line.split(",");
+  const mfrRaw = parts[0] || "";
+  const modelRaw = parts[1] || "";
+  const yearRaw = parts[2] || "";
+  const rarityRaw = parts[3] || "";
+  const priceRaw = parts[4] || "";
+  const findRaw = parts.slice(5).join(",");
+
+  const mfr = mfrRaw.trim();
+  const model = modelRaw.trim();
+
+  if(!mfr || !model){
+    return { ok: false, lineNum, raw: line, error: "Missing manufacturer or model" };
+  }
+
+  const yearTrim = yearRaw.trim();
+  if(yearTrim && !/^\d{1,4}$/.test(yearTrim)){
+    return { ok: false, lineNum, raw: line, error: `Year "${yearTrim}" doesn't look like a year` };
+  }
+  const year = parseInt(yearTrim) || 0;
+
+  const rarityKey = rarityRaw.trim().toLowerCase();
+  const rarity = RARITY_ALIASES.hasOwnProperty(rarityKey) ? RARITY_ALIASES[rarityKey] : null;
+  if(rarityRaw.trim() && rarity === null){
+    return { ok: false, lineNum, raw: line, error: `Unrecognized rarity "${rarityRaw.trim()}" (use Common/Rare/Epic/Legendary/Forza Edition/Unknown)` };
+  }
+
+  const priceTrim = priceRaw.trim();
+  if(priceTrim && !/^\d+$/.test(priceTrim)){
+    return { ok: false, lineNum, raw: line, error: `Price "${priceTrim}" should be digits only, no commas (e.g. 1000000 not 1,000,000)` };
+  }
+  // catch comma-grouped thousands that slipped through as a too-short price
+  // followed by digit-only leftovers (e.g. "1" then "000,000, Hard to find")
+  const findTrim = findRaw.trim();
+  if(priceTrim && /^\d+$/.test(priceTrim) && /^\d{3}(,\d{3})*(,|$)/.test(findTrim)){
+    return { ok: false, lineNum, raw: line, error: `Price looks like it has comma-separated thousands — write it as one number with no commas` };
+  }
+  const price = parseInt(priceTrim) || 0;
+  const find = findTrim;
+
+  return {
+    ok: true, lineNum, raw: line,
+    car: { mfr, model, y: year, p: price, r: rarity || "COMMON", cl: "?", pi: "?", find }
+  };
+}
+
+let lastBulkParse = [];
+
+document.getElementById("previewBulkBtn").addEventListener("click", () => {
+  const raw = document.getElementById("bulkTextarea").value;
+  const lines = raw.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+
+  if(lines.length === 0){
+    alert("Paste at least one car line first.");
+    return;
+  }
+
+  lastBulkParse = lines.map((line, i) => parseBulkLine(line, i + 1));
+
+  const preview = document.getElementById("bulkPreview");
+  preview.innerHTML = lastBulkParse.map(r => {
+    if(r.ok){
+      return `<div class="bulk-preview-row ok">
+        <span><span class="pname">${r.car.mfr} ${r.car.model}</span> (${r.car.y || "—"})</span>
+        <span>${RARITY_LABELS[r.car.r]} &middot; ${fmtCR(r.car.p)}</span>
+      </div>`;
+    } else {
+      return `<div class="bulk-preview-row error">
+        <span>Line ${r.lineNum}: "${r.raw}"</span>
+        <span>${r.error}</span>
+      </div>`;
+    }
+  }).join("");
+  preview.style.display = "block";
+
+  const validCount = lastBulkParse.filter(r => r.ok).length;
+  const errorCount = lastBulkParse.length - validCount;
+  document.getElementById("bulkConfirmRow").style.display = validCount > 0 ? "flex" : "none";
+  document.getElementById("confirmBulkBtn").textContent =
+    `Add ${validCount} valid car${validCount === 1 ? '' : 's'}` + (errorCount > 0 ? ` (${errorCount} skipped)` : '');
+});
+
+document.getElementById("confirmBulkBtn").addEventListener("click", () => {
+  const validCars = lastBulkParse.filter(r => r.ok).map(r => r.car);
+  if(validCars.length === 0) return;
+
+  const custom = loadCustom();
+  validCars.forEach(car => custom.push(car));
+  saveCustom(custom);
+
+  document.getElementById("bulkTextarea").value = "";
+  document.getElementById("bulkPreview").style.display = "none";
+  document.getElementById("bulkConfirmRow").style.display = "none";
+  lastBulkParse = [];
+
+  render();
+  alert(`Added ${validCars.length} car${validCars.length === 1 ? '' : 's'} to your garage.`);
+});
+
+// ---- Export / Import (for manual sync across devices via Drive, OneDrive, email, etc.) ----
+function exportGarageData(){
+  const payload = {
+    type: "fh6-garage-log-backup",
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    owned: loadOwned(),
+    custom: loadCustom(),
+    notes: loadNotes(),
+    overrides: loadOverrides(),
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `garage-log-backup-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("exportData").addEventListener("click", exportGarageData);
+document.getElementById("quickSaveBtn").addEventListener("click", exportGarageData);
+
+function triggerImportPicker(){
+  document.getElementById("importFileInput").click();
+}
+
+document.getElementById("importData").addEventListener("click", triggerImportPicker);
+document.getElementById("quickImportBtn").addEventListener("click", triggerImportPicker);
+
+document.getElementById("importFileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    let payload;
+    try{
+      payload = JSON.parse(evt.target.result);
+    } catch(err){
+      alert("That file isn't valid JSON. Make sure you're importing a file exported from this app.");
+      e.target.value = "";
+      return;
+    }
+
+    if(payload.type !== "fh6-garage-log-backup" || !payload.owned || !payload.custom || !payload.notes){
+      alert("That doesn't look like a Garage Log backup file. Import was cancelled.");
+      e.target.value = "";
+      return;
+    }
+
+    const exportedDate = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : "an unknown time";
+    const proceed = confirm(
+      `Import backup from ${exportedDate}?\n\n` +
+      `This will REPLACE everything currently on this device: your counts, custom cars, ratings, notes, and any car edits.\n\n` +
+      `This can't be undone.`
+    );
+    if(!proceed){
+      e.target.value = "";
+      return;
+    }
+
+    owned = payload.owned;
+    notesData = payload.notes;
+    // older backups (exported before the edit-car feature existed) won't have an
+    // "overrides" key at all -- treat that as "no edits", not as a missing/invalid file
+    overrides = payload.overrides || {};
+    saveOwned(owned);
+    saveCustom(payload.custom);
+    saveNotes(notesData);
+    saveOverrides(overrides);
+
+    e.target.value = "";
+    render();
+    alert("Import complete.");
+  };
+  reader.onerror = () => {
+    alert("Couldn't read that file. Please try again.");
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById("resetAll").addEventListener("click", () => {
+  if(confirm("Clear every count back to 0? This can't be undone.")){
+    owned = {};
+    saveOwned(owned);
+    render();
+  }
+});
+
+document.getElementById("resetNotes").addEventListener("click", () => {
+  if(confirm("Clear every star rating and note? This can't be undone.")){
+    notesData = {};
+    saveNotes(notesData);
+    render();
+  }
+});
+
+function discardAllCarEdits(){
+  if(!confirm("Undo every edit made to built-in cars, reverting them to their original values? Owned counts, ratings, and notes are kept. This can't be undone.")) return;
+
+  // before wiping overrides, migrate each edited car's owned/notes records back to its
+  // original id -- otherwise they'd be orphaned under the now-abandoned edited id
+  const full = getFullRoster();
+  Object.keys(full).forEach(mfr => {
+    full[mfr].forEach(car => {
+      if(!car.custom && car.edited && car.originalId){
+        migrateCarId(car.id, car.originalId);
+      }
+    });
+  });
+
+  overrides = {};
+  saveOverrides(overrides);
+  render();
+}
+
+document.getElementById("resetEdits").addEventListener("click", discardAllCarEdits);
+
+// ---- Settings panel (theme + data controls, top-right) ----
+document.getElementById("settingsBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const panel = document.getElementById("settingsPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+});
+
+document.getElementById("settingsPanel").addEventListener("click", (e) => {
+  // prevent clicks inside the panel (e.g. on the theme toggle) from bubbling to the document
+  // listener below and immediately closing the panel
+  e.stopPropagation();
+});
+
+document.addEventListener("click", () => {
+  document.getElementById("settingsPanel").style.display = "none";
+});
+
+// ---- Theme ----
+const THEME_KEY = "fh6_garage_theme_v1";
+
+const VALID_THEMES = ["dark", "light", "fh6"];
+
+function applyTheme(theme){
+  const safeTheme = VALID_THEMES.includes(theme) ? theme : "light";
+  document.documentElement.setAttribute("data-theme", safeTheme);
+  document.querySelectorAll(".theme-option").forEach(opt => {
+    opt.classList.toggle("active", opt.dataset.theme === safeTheme);
+  });
+}
+
+function loadTheme(){
+  try{
+    const saved = localStorage.getItem(THEME_KEY);
+    return VALID_THEMES.includes(saved) ? saved : "light";
+  } catch(e){ return "light"; }
+}
+function saveTheme(theme){
+  try{ localStorage.setItem(THEME_KEY, theme); } catch(e){}
+}
+
+document.querySelectorAll(".theme-option").forEach(opt => {
+  opt.addEventListener("click", () => {
+    const theme = opt.dataset.theme;
+    applyTheme(theme);
+    saveTheme(theme);
+  });
+});
+
+applyTheme(loadTheme());
+
+render();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
