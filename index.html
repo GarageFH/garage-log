@@ -478,6 +478,7 @@
 </div>
 
 <div id="editOverlay" class="edit-overlay" style="display:none;"></div>
+<div id="conflictOverlay" class="edit-overlay" style="display:none;"></div>
 
 <div class="add-bar">
   <div class="add-toggle" id="addToggle">+ Add a car not on the list</div>
@@ -632,32 +633,6 @@ function getFullRoster(){
     });
   });
   return full;
-}
-
-
-// O(1) DOM cost. Recalculates the header math instantly without touching the car list.
-function updateDashboardKPIs() {
-  let totalMod = 0, ownedMod = 0, totUnits = 0, totVal = 0;
-  const full = getFullRoster();
-
-  Object.keys(full).forEach(mfr => {
-    full[mfr].forEach(car => {
-      totalMod++;
-      const q = owned[car.id] || 0;
-      if(q > 0) {
-        ownedMod++;
-        totUnits += q;
-        totVal += (car.p || 0) * q;
-      }
-    });
-  });
-
-  const pct = totalMod ? Math.round((ownedMod / totalMod) * 100) : 0;
-  const circ = 226;
-  document.getElementById("gaugeFill").style.strokeDashoffset = circ - (circ * pct / 100);
-  document.getElementById("gaugeNum").innerHTML = pct + "<sup>%</sup>";
-  document.getElementById("ownedCount").innerHTML = 
-    `${ownedMod} of ${totalMod} models (${totUnits} cars) &middot; <span class="sub-cr">${fmtTotalCR(totVal)}</span>`;
 }
 
 function render(){
@@ -851,75 +826,59 @@ function updateQtyIncrementally(id, oldQty, newQty){
   return true; // handled, no full render needed
 }
 
+function updateStarIncrementally(id, oldRating, newRating){
+  const car = carLookup[id];
+  if(!car) return false;
+
+  // the "has-notes" filter cares whether rating OR note is non-empty -- if this
+  // change flips that boolean (and the filter is active), visibility changes, needs full render
+  if(activeRarityFilter === "has-notes"){
+    const note = getEntry(id).note;
+    const hadNotesBefore = !!note || oldRating > 0;
+    const hasNotesAfter = !!note || newRating > 0;
+    if(hadNotesBefore !== hasNotesAfter) return false;
+  }
+
+  const row = document.querySelector(`.car-row[data-row-id="${CSS.escape(id)}"]`);
+  if(!row) return false;
+
+  const starButtons = row.querySelectorAll(".star-btn");
+  starButtons.forEach(btn => {
+    const starNum = parseInt(btn.dataset.star);
+    btn.classList.toggle("filled", starNum <= newRating);
+  });
+
+  return true;
+}
+
 document.getElementById("listRoot").addEventListener("click", (e) => {
-  // 1. SURGICAL QUANTITY PATCH
   const qtyBtn = e.target.closest(".qty-btn");
-  if(qtyBtn) {
+  if(qtyBtn){
     const id = qtyBtn.dataset.id;
     const dir = parseInt(qtyBtn.dataset.dir);
     const current = owned[id] || 0;
     const next = Math.max(0, current + dir);
-    
     if(next === 0) delete owned[id];
     else owned[id] = next;
     saveOwned(owned);
-
-    // If we are actively sitting in the "Have" or "Missing" tab and just changed a car's 
-    // status so it no longer belongs in this view, do a real re-render to slide it away.
-    if((activeTab === "have" && next === 0) || (activeTab === "missing" && next > 0)) {
-      render();
-      return;
-    }
-
-    // Otherwise, patch the exact DOM nodes for this specific row instantly:
-    const stepperCont = qtyBtn.parentElement;
-    const qtySpan = stepperCont.querySelector(".qty-num");
-    if(qtySpan) {
-      qtySpan.textContent = next;
-      qtySpan.classList.toggle("zero", next === 0);
-    }
-
-    const carRow = stepperCont.closest(".car-row");
-    if(carRow) {
-      carRow.classList.toggle("owned", next > 0);
-    }
-
-    updateDashboardKPIs();
+    if(!updateQtyIncrementally(id, current, next)) render();
     return;
   }
 
-  // 2. SURGICAL STAR RATING PATCH
   const starBtn = e.target.closest(".star-btn");
-  if(starBtn) {
+  if(starBtn){
     const id = starBtn.dataset.id;
-    const clickedStar = parseInt(starBtn.dataset.star);
-    const currentRating = getEntry(id).rating;
-    const nextRating = (currentRating === clickedStar) ? 0 : clickedStar;
-    
-    setRating(id, nextRating);
-
-    // If filtered specifically by "Has Notes" and we just stripped its only rating, re-render
-    if(activeRarityFilter === "has-notes" && nextRating === 0 && !getEntry(id).note) {
-      render();
-      return;
-    }
-
-    // Otherwise, patch the 5 SVG star buttons inside this specific row instantly:
-    const starCont = starBtn.parentElement;
-    if(starCont) {
-      starCont.querySelectorAll(".star-btn").forEach((btn, idx) => {
-        btn.classList.toggle("filled", (idx + 1) <= nextRating);
-      });
-    }
-
-    if(sortMode.startsWith("rating")) {
-      render(); // Re-sort instantly if in rating sort mode
-    }
+    const star = parseInt(starBtn.dataset.star);
+    const current = getEntry(id).rating;
+    // clicking the already-selected top star clears the rating back to 0
+    const next = (current === star) ? 0 : star;
+    setRating(id, next);
+    if(!updateStarIncrementally(id, current, next)) render();
     return;
   }
 
   const editBtn = e.target.closest(".edit-car-btn");
-  if(editBtn) {
+  if(editBtn){
     openEditModal(editBtn.dataset.id);
     return;
   }
@@ -1318,8 +1277,9 @@ document.getElementById("confirmBulkBtn").addEventListener("click", () => {
 function exportGarageData(){
   const payload = {
     type: "fh6-garage-log-backup",
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
+    rosterCount: CARS.length,
     owned: loadOwned(),
     custom: loadCustom(),
     notes: loadNotes(),
@@ -1342,11 +1302,181 @@ document.getElementById("exportData").addEventListener("click", exportGarageData
 document.getElementById("quickSaveBtn").addEventListener("click", exportGarageData);
 
 function triggerImportPicker(){
+  const conflictOverlay = document.getElementById("conflictOverlay");
+  if(conflictOverlay.style.display !== "none" && conflictOverlay.innerHTML.trim() !== ""){
+    alert("Please finish resolving the current import's conflicts first.");
+    return;
+  }
   document.getElementById("importFileInput").click();
 }
 
 document.getElementById("importData").addEventListener("click", triggerImportPicker);
 document.getElementById("quickImportBtn").addEventListener("click", triggerImportPicker);
+
+// ---- Import merge analysis ----
+// Compares the device's current custom cars / overrides against an imported backup's,
+// and classifies every item into one of three buckets:
+//   - "new": only exists in one side -> safe to add/keep silently
+//   - "identical": exists in both sides with the same field values -> nothing to do
+//   - "conflict": exists in both sides but with different field values -> needs a user decision
+function fieldsEqual(a, b){
+  const keys = ["mfr","model","y","p","r","cl","find"];
+  return keys.every(k => (a[k] ?? "") === (b[k] ?? ""));
+}
+
+function analyzeCustomMerge(localCustom, importedCustom){
+  const localById = {};
+  localCustom.forEach(item => { localById[carId(item.mfr, item.model, item.y)] = item; });
+  const importedById = {};
+  importedCustom.forEach(item => { importedById[carId(item.mfr, item.model, item.y)] = item; });
+
+  const allIds = new Set([...Object.keys(localById), ...Object.keys(importedById)]);
+  const result = { toAdd: [], conflicts: [], identicalCount: 0 };
+
+  allIds.forEach(id => {
+    const local = localById[id];
+    const imported = importedById[id];
+    if(local && imported){
+      if(fieldsEqual(local, imported)) result.identicalCount++;
+      else result.conflicts.push({ id, kind: "custom", local, imported });
+    } else if(imported && !local){
+      result.toAdd.push(imported); // exists only in the import -- new car, add silently
+    }
+    // exists only locally -> keep as-is, nothing to do (import never deletes local additions)
+  });
+
+  return result;
+}
+
+function analyzeOverrideMerge(localOverrides, importedOverrides){
+  const allIds = new Set([...Object.keys(localOverrides), ...Object.keys(importedOverrides)]);
+  const result = { toAdd: {}, conflicts: [], identicalCount: 0 };
+
+  allIds.forEach(id => {
+    const local = localOverrides[id];
+    const imported = importedOverrides[id];
+    if(local && imported){
+      if(fieldsEqual(local, imported)) result.identicalCount++;
+      else result.conflicts.push({ id, kind: "override", local, imported });
+    } else if(imported && !local){
+      result.toAdd[id] = imported;
+    }
+    // local-only override -> keep as-is
+  });
+
+  return result;
+}
+
+// Quantities merge by simply taking the higher number on each side -- a higher count can
+// never represent lost data, so this never needs a conflict prompt.
+function mergeOwned(localOwned, importedOwned){
+  const merged = { ...localOwned };
+  Object.keys(importedOwned).forEach(id => {
+    const localQty = localOwned[id] || 0;
+    const importedQty = importedOwned[id] || 0;
+    const max = Math.max(localQty, importedQty);
+    if(max > 0) merged[id] = max;
+    else delete merged[id];
+  });
+  return merged;
+}
+
+// Ratings/notes merge silently UNLESS both sides have a different non-empty value for the
+// SAME field -- that's a genuine subjective disagreement, not a "more data wins" situation.
+function analyzeNotesMerge(localNotes, importedNotes){
+  const allIds = new Set([...Object.keys(localNotes), ...Object.keys(importedNotes)]);
+  const merged = {};
+  const conflicts = [];
+
+  allIds.forEach(id => {
+    const local = localNotes[id] || { rating: 0, note: "" };
+    const imported = importedNotes[id] || { rating: 0, note: "" };
+
+    let finalRating = local.rating || imported.rating || 0;
+    if(local.rating && imported.rating && local.rating !== imported.rating){
+      conflicts.push({ id, kind: "rating", local: local.rating, imported: imported.rating });
+      finalRating = local.rating; // placeholder until the user picks; corrected after resolution
+    }
+
+    let finalNote = local.note || imported.note || "";
+    if(local.note && imported.note && local.note !== imported.note){
+      conflicts.push({ id, kind: "note", local: local.note, imported: imported.note });
+      finalNote = local.note; // placeholder until the user picks
+    }
+
+    merged[id] = { rating: finalRating, note: finalNote };
+  });
+
+  return { merged, conflicts };
+}
+
+// Shows import conflicts one at a time, each with a "keep mine" / "use imported" choice.
+// Calls onComplete(resolvedConflicts) once every conflict has been answered, where
+// resolvedConflicts is an array of { conflict, choice: "local"|"imported" }.
+function describeConflict(conflict){
+  const carName = carLookup[conflict.id] ? `${carLookup[conflict.id].mfr} ${carLookup[conflict.id].model}` : conflict.id;
+  if(conflict.kind === "custom" || conflict.kind === "override"){
+    const fields = ["mfr","model","y","p","r","cl","find"];
+    const diffs = fields.filter(f => (conflict.local[f] ?? "") !== (conflict.imported[f] ?? ""));
+    const label = conflict.kind === "custom" ? "Custom car" : "Edited car";
+    return {
+      title: `${label}: ${conflict.local.mfr} ${conflict.local.model}`,
+      detail: diffs.map(f => `${f}: yours = "${conflict.local[f] ?? ''}" · imported = "${conflict.imported[f] ?? ''}"`).join("\n"),
+    };
+  }
+  if(conflict.kind === "rating"){
+    return { title: `Rating: ${carName}`, detail: `Yours: ${conflict.local} stars · Imported: ${conflict.imported} stars` };
+  }
+  if(conflict.kind === "note"){
+    return { title: `Note: ${carName}`, detail: `Yours: "${conflict.local}"\nImported: "${conflict.imported}"` };
+  }
+  return { title: "Conflict", detail: "" };
+}
+
+function showConflictResolver(conflicts, onComplete){
+  const queue = [...conflicts];
+  const resolved = [];
+  const overlay = document.getElementById("conflictOverlay");
+
+  function showNext(){
+    if(queue.length === 0){
+      overlay.style.display = "none";
+      overlay.innerHTML = "";
+      onComplete(resolved);
+      return;
+    }
+
+    const conflict = queue[0];
+    const { title, detail } = describeConflict(conflict);
+    const remaining = queue.length;
+
+    overlay.innerHTML = `
+      <div class="edit-modal">
+        <h3>Import conflict (${remaining} left)</h3>
+        <p style="font-family:Arial,sans-serif; font-size:13px; color:var(--paper); margin:0 0 6px; font-weight:600;">${title}</p>
+        <p style="font-family:Arial,sans-serif; font-size:12px; color:var(--paper-dim); white-space:pre-line; margin:0 0 16px;">${detail}</p>
+        <div class="edit-modal-actions">
+          <button class="edit-cancel-btn" id="conflictKeepMine">Keep mine</button>
+          <button class="edit-save-btn" id="conflictUseImported">Use imported</button>
+        </div>
+      </div>
+    `;
+    overlay.style.display = "flex";
+
+    document.getElementById("conflictKeepMine").addEventListener("click", () => {
+      resolved.push({ conflict, choice: "local" });
+      queue.shift();
+      showNext();
+    });
+    document.getElementById("conflictUseImported").addEventListener("click", () => {
+      resolved.push({ conflict, choice: "imported" });
+      queue.shift();
+      showNext();
+    });
+  }
+
+  showNext();
+}
 
 document.getElementById("importFileInput").addEventListener("change", (e) => {
   const file = e.target.files[0];
@@ -1369,30 +1499,76 @@ document.getElementById("importFileInput").addEventListener("change", (e) => {
       return;
     }
 
-    const exportedDate = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : "an unknown time";
-    const proceed = confirm(
-      `Import backup from ${exportedDate}?\n\n` +
-      `This will REPLACE everything currently on this device: your counts, custom cars, ratings, notes, and any car edits.\n\n` +
-      `This can't be undone.`
-    );
-    if(!proceed){
-      e.target.value = "";
-      return;
-    }
+    const localCustom = loadCustom();
+    const localOverrides = loadOverrides();
+    const localOwnedData = loadOwned();
+    const localNotesData = loadNotes();
+    const importedOverrides = payload.overrides || {};
 
-    owned = payload.owned;
-    notesData = payload.notes;
-    // older backups (exported before the edit-car feature existed) won't have an
-    // "overrides" key at all -- treat that as "no edits", not as a missing/invalid file
-    overrides = payload.overrides || {};
-    saveOwned(owned);
-    saveCustom(payload.custom);
-    saveNotes(notesData);
-    saveOverrides(overrides);
+    const customMerge = analyzeCustomMerge(localCustom, payload.custom);
+    const overrideMerge = analyzeOverrideMerge(localOverrides, importedOverrides);
+    const notesMerge = analyzeNotesMerge(localNotesData, payload.notes);
+    const mergedOwned = mergeOwned(localOwnedData, payload.owned);
+
+    const rosterChanged = typeof payload.rosterCount === "number" && payload.rosterCount !== CARS.length;
+
+    const allConflicts = [
+      ...customMerge.conflicts,
+      ...overrideMerge.conflicts,
+      ...notesMerge.conflicts,
+    ];
 
     e.target.value = "";
-    render();
-    alert("Import complete.");
+
+    function finishImport(resolvedConflicts){
+      // apply silent additions
+      const finalCustom = [...localCustom, ...customMerge.toAdd];
+      const finalOverrides = { ...localOverrides, ...overrideMerge.toAdd };
+      const finalNotes = notesMerge.merged;
+
+      // apply user-resolved conflicts on top
+      resolvedConflicts.forEach(({ conflict, choice }) => {
+        const value = choice === "imported" ? conflict.imported : conflict.local;
+        if(conflict.kind === "custom"){
+          const idx = finalCustom.findIndex(item => carId(item.mfr, item.model, item.y) === conflict.id);
+          if(idx !== -1) finalCustom[idx] = value;
+        } else if(conflict.kind === "override"){
+          finalOverrides[conflict.id] = value;
+        } else if(conflict.kind === "rating"){
+          finalNotes[conflict.id] = finalNotes[conflict.id] || { rating: 0, note: "" };
+          finalNotes[conflict.id].rating = value;
+        } else if(conflict.kind === "note"){
+          finalNotes[conflict.id] = finalNotes[conflict.id] || { rating: 0, note: "" };
+          finalNotes[conflict.id].note = value;
+        }
+      });
+
+      owned = mergedOwned;
+      notesData = finalNotes;
+      overrides = finalOverrides;
+      saveOwned(owned);
+      saveCustom(finalCustom);
+      saveNotes(notesData);
+      saveOverrides(overrides);
+
+      render();
+
+      let summary = "Import complete.";
+      if(customMerge.toAdd.length > 0) summary += `\n\n${customMerge.toAdd.length} new car${customMerge.toAdd.length===1?'':'s'} added from the import.`;
+      if(rosterChanged) summary += `\n\nNote: this device's built-in car list has ${CARS.length} cars, but this backup was made when it had ${payload.rosterCount}. The list itself wasn't changed by this import -- just flagging the difference.`;
+      alert(summary);
+    }
+
+    if(allConflicts.length === 0){
+      // nothing to ask about -- still confirm before touching storage, since this does merge in new data
+      const exportedDate = payload.exportedAt ? new Date(payload.exportedAt).toLocaleString() : "an unknown time";
+      let msg = `Import backup from ${exportedDate}?\n\nNew cars/data will be merged in. Nothing on this device will be lost.`;
+      if(rosterChanged) msg += `\n\nNote: built-in car list size differs (this device: ${CARS.length}, backup: ${payload.rosterCount}) -- you'll just be informed, nothing will change automatically.`;
+      if(!confirm(msg)) return;
+      finishImport([]);
+    } else {
+      showConflictResolver(allConflicts, finishImport);
+    }
   };
   reader.onerror = () => {
     alert("Couldn't read that file. Please try again.");
