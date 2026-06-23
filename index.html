@@ -4,9 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <title>Garage Log — FH6</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#1a5cc0">
+<link rel="manifest" href="data:application/json,{%22name%22:%22Garage%20Log%22,%22short_name%22:%22Garage%20Log%22,%22display%22:%22standalone%22,%22background_color%22:%22%230b0d10%22,%22theme_color%22:%22%230b0d10%22}">
 <script>
   // Apply saved theme before first paint to avoid a flash of the wrong theme.
   try{
@@ -573,6 +571,9 @@ let owned = loadOwned(); // { id: quantityOwned }
 let notesData = loadNotes(); // { id: { rating: 0-5, note: "text" } }
 let overrides = loadOverrides(); // { id: { mfr, model, y, p, r, cl, find } } -- partial, only edited fields
 let carLookup = {}; // rebuilt every render(): { id: fullCarObject } -- used by the edit modal
+// Running header totals, kept in sync incrementally by bumpHeaderStats() on quantity changes,
+// and recomputed from scratch by render() (the only fully-correct source) whenever it runs anyway.
+let headerStats = { totalModels: 0, ownedModels: 0, totalUnits: 0, totalValueOwned: 0 };
 
 let activeTab = "all";       // all | have | missing
 let activeRarityFilter = "rarity-all";
@@ -631,6 +632,32 @@ function getFullRoster(){
     });
   });
   return full;
+}
+
+
+// O(1) DOM cost. Recalculates the header math instantly without touching the car list.
+function updateDashboardKPIs() {
+  let totalMod = 0, ownedMod = 0, totUnits = 0, totVal = 0;
+  const full = getFullRoster();
+
+  Object.keys(full).forEach(mfr => {
+    full[mfr].forEach(car => {
+      totalMod++;
+      const q = owned[car.id] || 0;
+      if(q > 0) {
+        ownedMod++;
+        totUnits += q;
+        totVal += (car.p || 0) * q;
+      }
+    });
+  });
+
+  const pct = totalMod ? Math.round((ownedMod / totalMod) * 100) : 0;
+  const circ = 226;
+  document.getElementById("gaugeFill").style.strokeDashoffset = circ - (circ * pct / 100);
+  document.getElementById("gaugeNum").innerHTML = pct + "<sup>%</sup>";
+  document.getElementById("ownedCount").innerHTML = 
+    `${ownedMod} of ${totalMod} models (${totUnits} cars) &middot; <span class="sub-cr">${fmtTotalCR(totVal)}</span>`;
 }
 
 function render(){
@@ -707,9 +734,10 @@ function render(){
 
     const group = document.createElement("div");
     group.className = "mfr-group";
+    group.dataset.mfr = mfr;
     group.innerHTML = `<div class="mfr-header">
       <span class="mfr-name">${mfr}</span>
-      <span class="mfr-count ${complete ? 'complete' : ''}">${ownedInMfr}/${cars.length}</span>
+      <span class="mfr-count ${complete ? 'complete' : ''}" data-mfr-count="${mfr}">${ownedInMfr}/${cars.length}</span>
     </div>`;
 
     const list = document.createElement("div");
@@ -722,6 +750,8 @@ function render(){
       const entry = getEntry(car.id);
       const row = document.createElement("div");
       row.className = "car-row" + (qty > 0 ? " owned" : "");
+      row.dataset.mfr = mfr;
+      row.dataset.rowId = car.id;
 
       const starsHtml = [1,2,3,4,5].map(n => `
         <button class="star-btn ${n <= entry.rating ? 'filled' : ''}" data-id="${car.id}" data-star="${n}" aria-label="Rate ${n} star">
@@ -768,6 +798,12 @@ function render(){
 
   document.getElementById("emptyState").style.display = anyVisible ? "none" : "block";
 
+  headerStats = { totalModels, ownedModels, totalUnits, totalValueOwned };
+  paintHeaderStats();
+}
+
+function paintHeaderStats(){
+  const { totalModels, ownedModels, totalUnits, totalValueOwned } = headerStats;
   const pct = totalModels ? Math.round((ownedModels / totalModels) * 100) : 0;
   const circumference = 226;
   document.getElementById("gaugeFill").style.strokeDashoffset = circumference - (circumference * pct / 100);
@@ -776,34 +812,114 @@ function render(){
     `${ownedModels} of ${totalModels} models (${totalUnits} cars) &middot; <span class="sub-cr">${fmtTotalCR(totalValueOwned)}</span>`;
 }
 
+function updateQtyIncrementally(id, oldQty, newQty){
+  const car = carLookup[id];
+  if(!car) return false; // unknown car, let caller fall back to full render
+
+  // if the active tab cares about owned-vs-not, and this change crosses the 0 boundary,
+  // the row's visibility must change (appear/disappear) -- that needs a full render.
+  const crossedZeroBoundary = (oldQty === 0) !== (newQty === 0);
+  if(crossedZeroBoundary && (activeTab === "have" || activeTab === "missing")) return false;
+
+  const row = document.querySelector(`.car-row[data-row-id="${id}"]`);
+  if(!row) return false; // row isn't currently in the DOM (e.g. filtered out by search) -- let caller fall back
+
+  // patch the row itself
+  row.classList.toggle("owned", newQty > 0);
+  const qtyNumEl = row.querySelector(".qty-num");
+  qtyNumEl.textContent = newQty;
+  qtyNumEl.classList.toggle("zero", newQty === 0);
+
+  // patch this manufacturer's "X/Y" count badge
+  const mfr = car.mfr;
+  const mfrCountEl = document.querySelector(`.mfr-count[data-mfr-count="${CSS.escape(mfr)}"]`);
+  if(mfrCountEl){
+    const mfrTotal = Object.values(carLookup).filter(c => c.mfr === mfr).length;
+    const mfrOwned = Object.values(carLookup).filter(c => c.mfr === mfr && (owned[c.id]||0) > 0).length;
+    mfrCountEl.textContent = `${mfrOwned}/${mfrTotal}`;
+    mfrCountEl.classList.toggle("complete", mfrOwned === mfrTotal);
+  }
+
+  // patch the global header stats exactly, without recomputing the whole roster
+  const qtyDelta = newQty - oldQty;
+  headerStats.totalUnits += qtyDelta;
+  headerStats.totalValueOwned += qtyDelta * (car.p || 0);
+  if(oldQty === 0 && newQty > 0) headerStats.ownedModels += 1;
+  if(oldQty > 0 && newQty === 0) headerStats.ownedModels -= 1;
+  paintHeaderStats();
+
+  return true; // handled, no full render needed
+}
+
 document.getElementById("listRoot").addEventListener("click", (e) => {
+  // 1. SURGICAL QUANTITY PATCH
   const qtyBtn = e.target.closest(".qty-btn");
-  if(qtyBtn){
+  if(qtyBtn) {
     const id = qtyBtn.dataset.id;
     const dir = parseInt(qtyBtn.dataset.dir);
     const current = owned[id] || 0;
     const next = Math.max(0, current + dir);
+    
     if(next === 0) delete owned[id];
     else owned[id] = next;
     saveOwned(owned);
-    render();
+
+    // If we are actively sitting in the "Have" or "Missing" tab and just changed a car's 
+    // status so it no longer belongs in this view, do a real re-render to slide it away.
+    if((activeTab === "have" && next === 0) || (activeTab === "missing" && next > 0)) {
+      render();
+      return;
+    }
+
+    // Otherwise, patch the exact DOM nodes for this specific row instantly:
+    const stepperCont = qtyBtn.parentElement;
+    const qtySpan = stepperCont.querySelector(".qty-num");
+    if(qtySpan) {
+      qtySpan.textContent = next;
+      qtySpan.classList.toggle("zero", next === 0);
+    }
+
+    const carRow = stepperCont.closest(".car-row");
+    if(carRow) {
+      carRow.classList.toggle("owned", next > 0);
+    }
+
+    updateDashboardKPIs();
     return;
   }
 
+  // 2. SURGICAL STAR RATING PATCH
   const starBtn = e.target.closest(".star-btn");
-  if(starBtn){
+  if(starBtn) {
     const id = starBtn.dataset.id;
-    const star = parseInt(starBtn.dataset.star);
-    const current = getEntry(id).rating;
-    // clicking the already-selected top star clears the rating back to 0
-    const next = (current === star) ? 0 : star;
-    setRating(id, next);
-    render();
+    const clickedStar = parseInt(starBtn.dataset.star);
+    const currentRating = getEntry(id).rating;
+    const nextRating = (currentRating === clickedStar) ? 0 : clickedStar;
+    
+    setRating(id, nextRating);
+
+    // If filtered specifically by "Has Notes" and we just stripped its only rating, re-render
+    if(activeRarityFilter === "has-notes" && nextRating === 0 && !getEntry(id).note) {
+      render();
+      return;
+    }
+
+    // Otherwise, patch the 5 SVG star buttons inside this specific row instantly:
+    const starCont = starBtn.parentElement;
+    if(starCont) {
+      starCont.querySelectorAll(".star-btn").forEach((btn, idx) => {
+        btn.classList.toggle("filled", (idx + 1) <= nextRating);
+      });
+    }
+
+    if(sortMode.startsWith("rating")) {
+      render(); // Re-sort instantly if in rating sort mode
+    }
     return;
   }
 
   const editBtn = e.target.closest(".edit-car-btn");
-  if(editBtn){
+  if(editBtn) {
     openEditModal(editBtn.dataset.id);
     return;
   }
@@ -1374,7 +1490,9 @@ applyTheme(loadTheme());
 render();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  const swCode = `self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('fetch', e => {});`;
+  const blob = new Blob([swCode], {type: 'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
 }
 </script>
 </body>
