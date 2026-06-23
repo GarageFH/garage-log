@@ -558,6 +558,7 @@ const STORAGE_KEY = "fh6_garage_qty_v2";
 const CUSTOM_KEY = "fh6_garage_custom_v3";
 const NOTES_KEY = "fh6_garage_notes_v1";
 const OVERRIDES_KEY = "fh6_garage_overrides_v1";
+const TOMBSTONES_KEY = "fh6_garage_tombstones_v1";
 
 function loadOwned(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e){ return {}; } }
 function saveOwned(obj){ localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }
@@ -567,10 +568,16 @@ function loadNotes(){ try{ return JSON.parse(localStorage.getItem(NOTES_KEY)) ||
 function saveNotes(obj){ localStorage.setItem(NOTES_KEY, JSON.stringify(obj)); }
 function loadOverrides(){ try{ return JSON.parse(localStorage.getItem(OVERRIDES_KEY)) || {}; } catch(e){ return {}; } }
 function saveOverrides(obj){ localStorage.setItem(OVERRIDES_KEY, JSON.stringify(obj)); }
+// Tombstones record "I deliberately removed this," so a later import of an older file
+// (which still has the item) knows to honor the removal instead of silently bringing it back.
+// Shape: { id: { kind: "custom-delete"|"override-reset", at: isoTimestamp } }
+function loadTombstones(){ try{ return JSON.parse(localStorage.getItem(TOMBSTONES_KEY)) || {}; } catch(e){ return {}; } }
+function saveTombstones(obj){ localStorage.setItem(TOMBSTONES_KEY, JSON.stringify(obj)); }
 
 let owned = loadOwned(); // { id: quantityOwned }
 let notesData = loadNotes(); // { id: { rating: 0-5, note: "text" } }
 let overrides = loadOverrides(); // { id: { mfr, model, y, p, r, cl, find } } -- partial, only edited fields
+let tombstones = loadTombstones(); // { id: { kind, at } } -- deliberate deletions/resets
 let carLookup = {}; // rebuilt every render(): { id: fullCarObject } -- used by the edit modal
 // Running header totals, kept in sync incrementally by bumpHeaderStats() on quantity changes,
 // and recomputed from scratch by render() (the only fully-correct source) whenever it runs anyway.
@@ -1134,6 +1141,11 @@ function deleteCustomCar(id){
   delete notesData[id];
   saveNotes(notesData);
 
+  // record that this was a deliberate deletion, so importing an older backup that still
+  // has this car doesn't silently bring it back
+  tombstones[id] = { kind: "custom-delete", at: new Date().toISOString() };
+  saveTombstones(tombstones);
+
   closeEditModal();
   render();
 }
@@ -1146,6 +1158,11 @@ function resetCarOverride(id){
   const originalId = car.originalId;
   delete overrides[originalId];
   saveOverrides(overrides);
+
+  // record the reset as a tombstone keyed by the ORIGINAL id, since that's the stable
+  // key overrides are always stored against
+  tombstones[originalId] = { kind: "override-reset", at: new Date().toISOString() };
+  saveTombstones(tombstones);
 
   // current (edited) id might differ from originalId -- migrate any records back
   migrateCarId(id, originalId);
@@ -1277,13 +1294,14 @@ document.getElementById("confirmBulkBtn").addEventListener("click", () => {
 function exportGarageData(){
   const payload = {
     type: "fh6-garage-log-backup",
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     rosterCount: CARS.length,
     owned: loadOwned(),
     custom: loadCustom(),
     notes: loadNotes(),
     overrides: loadOverrides(),
+    tombstones: loadTombstones(),
   };
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -1324,18 +1342,37 @@ function fieldsEqual(a, b){
   return keys.every(k => (a[k] ?? "") === (b[k] ?? ""));
 }
 
-function analyzeCustomMerge(localCustom, importedCustom){
+function analyzeCustomMerge(localCustom, importedCustom, localTombstones, importedTombstones){
   const localById = {};
   localCustom.forEach(item => { localById[carId(item.mfr, item.model, item.y)] = item; });
   const importedById = {};
   importedCustom.forEach(item => { importedById[carId(item.mfr, item.model, item.y)] = item; });
 
-  const allIds = new Set([...Object.keys(localById), ...Object.keys(importedById)]);
-  const result = { toAdd: [], conflicts: [], identicalCount: 0 };
+  const allIds = new Set([...Object.keys(localById), ...Object.keys(importedById), ...Object.keys(localTombstones), ...Object.keys(importedTombstones)]);
+  const result = { toAdd: [], toRemove: [], conflicts: [], identicalCount: 0 };
 
   allIds.forEach(id => {
     const local = localById[id];
     const imported = importedById[id];
+    // a tombstone only counts as "live" if the SAME side's current data doesn't already
+    // contradict it -- re-adding a deleted item retires that old tombstone implicitly
+    const localTomb = (localTombstones[id] && !local) ? localTombstones[id] : null;
+    const importedTomb = (importedTombstones[id] && !imported) ? importedTombstones[id] : null;
+
+    // if EITHER side has a still-live tombstone for this id, a deletion is in play -- the
+    // question is just whether it's already reflected locally or still needs to be applied
+    if(localTomb || importedTomb){
+      const localIsNewer = localTomb && (!importedTomb || localTomb.at >= importedTomb.at);
+      if(localIsNewer){
+        // our deletion is the latest word -- if the import still has the item, ignore it
+        // (don't re-add it), nothing to do
+      } else {
+        // the import's tombstone is newer than ours (or we have none) -- honor their deletion
+        if(local) result.toRemove.push(id);
+      }
+      return; // tombstoned ids never go through normal new/identical/conflict handling
+    }
+
     if(local && imported){
       if(fieldsEqual(local, imported)) result.identicalCount++;
       else result.conflicts.push({ id, kind: "custom", local, imported });
@@ -1348,13 +1385,26 @@ function analyzeCustomMerge(localCustom, importedCustom){
   return result;
 }
 
-function analyzeOverrideMerge(localOverrides, importedOverrides){
-  const allIds = new Set([...Object.keys(localOverrides), ...Object.keys(importedOverrides)]);
-  const result = { toAdd: {}, conflicts: [], identicalCount: 0 };
+function analyzeOverrideMerge(localOverrides, importedOverrides, localTombstones, importedTombstones){
+  const allIds = new Set([...Object.keys(localOverrides), ...Object.keys(importedOverrides), ...Object.keys(localTombstones), ...Object.keys(importedTombstones)]);
+  const result = { toAdd: {}, toRemove: [], conflicts: [], identicalCount: 0 };
 
   allIds.forEach(id => {
     const local = localOverrides[id];
     const imported = importedOverrides[id];
+    const localTomb = (localTombstones[id] && !local) ? localTombstones[id] : null;
+    const importedTomb = (importedTombstones[id] && !imported) ? importedTombstones[id] : null;
+
+    if(localTomb || importedTomb){
+      const localIsNewer = localTomb && (!importedTomb || localTomb.at >= importedTomb.at);
+      if(localIsNewer){
+        // nothing to do -- our reset already removed the override
+      } else {
+        if(local) result.toRemove.push(id);
+      }
+      return;
+    }
+
     if(local && imported){
       if(fieldsEqual(local, imported)) result.identicalCount++;
       else result.conflicts.push({ id, kind: "override", local, imported });
@@ -1503,12 +1553,22 @@ document.getElementById("importFileInput").addEventListener("change", (e) => {
     const localOverrides = loadOverrides();
     const localOwnedData = loadOwned();
     const localNotesData = loadNotes();
+    const localTombstones = loadTombstones();
     const importedOverrides = payload.overrides || {};
+    const importedTombstones = payload.tombstones || {};
 
-    const customMerge = analyzeCustomMerge(localCustom, payload.custom);
-    const overrideMerge = analyzeOverrideMerge(localOverrides, importedOverrides);
+    const customMerge = analyzeCustomMerge(localCustom, payload.custom, localTombstones, importedTombstones);
+    const overrideMerge = analyzeOverrideMerge(localOverrides, importedOverrides, localTombstones, importedTombstones);
     const notesMerge = analyzeNotesMerge(localNotesData, payload.notes);
     const mergedOwned = mergeOwned(localOwnedData, payload.owned);
+
+    // merge tombstone lists: union of both, keeping the newer "at" timestamp per id
+    const mergedTombstones = { ...localTombstones };
+    Object.keys(importedTombstones).forEach(id => {
+      const local = mergedTombstones[id];
+      const imported = importedTombstones[id];
+      if(!local || imported.at > local.at) mergedTombstones[id] = imported;
+    });
 
     const rosterChanged = typeof payload.rosterCount === "number" && payload.rosterCount !== CARS.length;
 
@@ -1521,9 +1581,13 @@ document.getElementById("importFileInput").addEventListener("change", (e) => {
     e.target.value = "";
 
     function finishImport(resolvedConflicts){
-      // apply silent additions
-      const finalCustom = [...localCustom, ...customMerge.toAdd];
-      const finalOverrides = { ...localOverrides, ...overrideMerge.toAdd };
+      // apply silent additions, then silent removals (honoring the other device's deletions)
+      let finalCustom = [...localCustom, ...customMerge.toAdd];
+      finalCustom = finalCustom.filter(item => !customMerge.toRemove.includes(carId(item.mfr, item.model, item.y)));
+
+      let finalOverrides = { ...localOverrides, ...overrideMerge.toAdd };
+      overrideMerge.toRemove.forEach(id => { delete finalOverrides[id]; });
+
       const finalNotes = notesMerge.merged;
 
       // apply user-resolved conflicts on top
@@ -1546,10 +1610,12 @@ document.getElementById("importFileInput").addEventListener("change", (e) => {
       owned = mergedOwned;
       notesData = finalNotes;
       overrides = finalOverrides;
+      tombstones = mergedTombstones;
       saveOwned(owned);
       saveCustom(finalCustom);
       saveNotes(notesData);
       saveOverrides(overrides);
+      saveTombstones(tombstones);
 
       render();
 
@@ -1596,15 +1662,19 @@ function discardAllCarEdits(){
   if(!confirm("Undo every edit made to built-in cars, reverting them to their original values? Owned counts, ratings, and notes are kept. This can't be undone.")) return;
 
   // before wiping overrides, migrate each edited car's owned/notes records back to its
-  // original id -- otherwise they'd be orphaned under the now-abandoned edited id
+  // original id -- otherwise they'd be orphaned under the now-abandoned edited id.
+  // also record a tombstone per car so the reset can propagate across devices on import.
   const full = getFullRoster();
+  const now = new Date().toISOString();
   Object.keys(full).forEach(mfr => {
     full[mfr].forEach(car => {
       if(!car.custom && car.edited && car.originalId){
         migrateCarId(car.id, car.originalId);
+        tombstones[car.originalId] = { kind: "override-reset", at: now };
       }
     });
   });
+  saveTombstones(tombstones);
 
   overrides = {};
   saveOverrides(overrides);
