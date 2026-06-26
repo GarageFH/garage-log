@@ -212,7 +212,7 @@
   }
 
   .mfr-group{ margin-bottom: 4px; }
-  .mfr-header{ display:flex; align-items:baseline; justify-content:space-between; padding: 14px 2px 8px; cursor: pointer; }
+  .mfr-header{ display:flex; align-items:baseline; justify-content:space-between; padding: 14px 2px 8px; }
   .mfr-name{ font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
   .mfr-country{ font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: normal; color: var(--paper-dim); }
   .mfr-count{ font-family: Arial, sans-serif; font-size: 12px; color: var(--paper-dim); white-space:nowrap; }
@@ -2484,12 +2484,6 @@ document.querySelectorAll(".theme-option").forEach(opt => {
 applyTheme(loadTheme());
 
 render();
-
-if ('serviceWorker' in navigator) {
-  const swCode = `self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('fetch', e => {});`;
-  const blob = new Blob([swCode], {type: 'application/javascript'});
-  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
-}
 </script>
 </body>
 </html>
