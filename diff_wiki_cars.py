@@ -34,7 +34,7 @@ MULTI_WORD_MAKES = [
     "Mini", "SCG", "Hot Wheels", "Mercedes", "VUHL", "W Motors", "Holden",
     "Local Motors", "American Motors", "Mitsubishi", "TVR", "Donkervoort",
     "AMG Transport Dynamics", "Alumicraft", "Ariel", "Hennessey", "Praga",
-    "Vauxhall", "Wagner", "Zenvo", "Austin-Healey", "Land Rover",
+    "Vauxhall", "Wagner", "Zenvo", "Austin-Healey",
 ]
 MULTI_WORD_MAKES.sort(key=len, reverse=True)
 
@@ -89,7 +89,17 @@ def parse_app_html(path):
                 break
 
     cars_json = content[i:end + 1]
-    app_cars = json.loads(cars_json)
+    try:
+        app_cars = json.loads(cars_json)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Could not parse the CARS array in {path} as valid JSON ({e}).\n"
+            f"This usually means a manual edit introduced a syntax problem -- "
+            f"common causes: a trailing comma before the closing ']', a missing "
+            f"comma between two car entries, or an unescaped quote inside a "
+            f"'find' value. Check the area around the reported line/column and "
+            f"fix it directly in {path} before re-running this tool."
+        ) from None
 
     normalized = []
     for c in app_cars:
@@ -504,6 +514,8 @@ def main():
         if not fields_equal(old_by_key[k], new_by_key[k]):
             changed.append((k, old_by_key[k], new_by_key[k]))
 
+    known_manufacturers = set(c["mfr"] for c in old_cars)
+
     print("=" * 60)
     print(f"ADDED ({len(added_keys)}) -- new cars not previously in your list:")
     print("=" * 60)
@@ -511,7 +523,10 @@ def main():
         print("  (none)")
     for k in sorted(added_keys):
         c = new_by_key[k]
-        print(f"  + {c['mfr']} {c['model']} ({c['year']}) -- {c['rarity']}, {c['class']}{c['pi']}, {c['price']:,} CR")
+        line = f"  + {c['mfr']} {c['model']} ({c['year']}) -- {c['rarity']}, {c['class']}{c['pi']}, {c['price']:,} CR"
+        if c['mfr'] not in known_manufacturers:
+            line += "   [NEW MANUFACTURER -- double-check this mfr/model split is right]"
+        print(line)
 
     print()
     print("=" * 60)
